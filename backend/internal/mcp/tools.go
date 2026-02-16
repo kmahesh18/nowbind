@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/nowbind/nowbind/internal/repository"
@@ -134,6 +135,15 @@ func (s *MCPServer) toolGetPost(ctx context.Context, args json.RawMessage) (inte
 	}
 	if post == nil || post.Status != "published" {
 		return nil, &rpcError{Code: -32602, Message: "Post not found"}
+	}
+
+	// Track as AI/MCP view
+	if s.analytics != nil {
+		go func() {
+			if err := s.analytics.RecordView(context.Background(), post.ID, "", "", "mcp", "mcp-client"); err != nil {
+				log.Printf("mcp: RecordView error: %v", err)
+			}
+		}()
 	}
 
 	var b strings.Builder

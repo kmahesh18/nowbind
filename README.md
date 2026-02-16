@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/nowbind/nowbind/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License" /></a>
-  <img src="https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white" alt="Go" />
+  <a href="https://github.com/nowbind/nowbind/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License" /></a>
+  <img src="https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white" alt="Go" />
   <img src="https://img.shields.io/badge/Next.js-16-000?logo=next.js" alt="Next.js" />
   <img src="https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL" />
 </p>
@@ -145,7 +145,7 @@ nowbind/
 │   ├── cmd/server/           # Entry point
 │   ├── internal/
 │   │   ├── config/           # Env config
-│   │   ├── database/         # PostgreSQL + migrations (6 files)
+│   │   ├── database/         # PostgreSQL + migrations (7 files)
 │   │   ├── handler/          # HTTP handlers
 │   │   ├── middleware/       # Auth, API key, CORS, logging
 │   │   ├── mcp/              # MCP server (JSON-RPC 2.0)
@@ -165,7 +165,11 @@ nowbind/
 │   └── lib/                  # API client, auth context, hooks, types
 │
 ├── docker-compose.yml
-└── Makefile
+├── Makefile
+├── API_TESTING.md
+├── CONTRIBUTING.md
+├── NOTICE
+└── LICENSE
 ```
 
 ## Agent API
@@ -174,7 +178,7 @@ AI-optimized endpoints with API key auth. Create keys from the dashboard or `/ap
 
 ```bash
 curl -H "Authorization: Bearer nb_your_api_key" \
-  https://your-instance.com/api/v1/agent/posts
+  https://nowbind.niheshr.com/api/v1/agent/posts
 ```
 
 | Endpoint | Description |
@@ -193,7 +197,7 @@ NowBind exposes an [MCP](https://modelcontextprotocol.io) server for AI assistan
 {
   "mcpServers": {
     "nowbind": {
-      "url": "https://your-instance.com/mcp",
+      "url": "https://nowbind.niheshr.com/mcp/",
       "headers": {
         "Authorization": "Bearer nb_your_api_key"
       }
@@ -335,6 +339,7 @@ cd backend && go run cmd/server/main.go -migrate
 | `004_analytics` | `post_views`, `post_stats` |
 | `005_search` | tsvector + GIN/trigram indexes |
 | `006_social` | `follows`, `post_likes`, `comments`, `bookmarks`, `notifications`, `push_subscriptions`, `notification_preferences` |
+| `007_tracking` | `login_logs`, `api_key_usage` |
 
 Neon databases are auto-detected and configured with appropriate pooling.
 
@@ -354,8 +359,8 @@ make clean            # Clean build artifacts
 
 ## Contributing
 
-Contributions are welcome. Please open an issue first to discuss what you'd like to change.
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a PR.
 
 ## License
 
-[MIT](LICENSE)
+[Apache License 2.0](LICENSE) — you are free to use, modify, and distribute this software, but **attribution is required**. See the [NOTICE](NOTICE) file for details.

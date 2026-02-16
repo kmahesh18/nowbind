@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & Discussion
+    url: https://github.com/nowbind/nowbind/discussions
+    about: Ask questions, share ideas, or chat with the community
+  - name: Documentation
+    url: https://nowbind.niheshr.com/docs
+    about: Read the API documentation and guides

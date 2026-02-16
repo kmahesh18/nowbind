@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { Loader2 } from "lucide-react";
+import { useAuth } from "@/lib/hooks/use-auth";
+import { Loader2, AlertCircle } from "lucide-react";
 import { Suspense } from "react";
 
 function CallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { refetch } = useAuth();
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -18,23 +20,41 @@ function CallbackContent() {
       return;
     }
 
+    let cancelled = false;
+
     api
       .get("/auth/magic-link/verify", { token })
-      .then(() => {
-        router.push("/dashboard");
+      .then(async () => {
+        if (cancelled) return;
+        // Refresh auth context so user state is populated before redirect
+        await refetch();
+        if (!cancelled) {
+          router.push("/dashboard");
+        }
       })
       .catch(() => {
-        setError("Invalid or expired link. Please try again.");
+        if (!cancelled) {
+          setError("Invalid or expired link. Please request a new one.");
+        }
       });
-  }, [searchParams, router]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, router, refetch]);
 
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <p className="mb-4 text-destructive">{error}</p>
-          <a href="/login" className="text-sm underline">
-            Back to login
+        <div className="mx-auto max-w-sm rounded-lg border bg-card p-6 text-center shadow-sm">
+          <AlertCircle className="mx-auto mb-3 h-8 w-8 text-destructive" />
+          <p className="mb-1 font-medium">Login Failed</p>
+          <p className="mb-4 text-sm text-muted-foreground">{error}</p>
+          <a
+            href="/login"
+            className="inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Back to Login
           </a>
         </div>
       </div>

@@ -16,10 +16,15 @@ func NewAnalyticsRepository(pool *pgxpool.Pool) *AnalyticsRepository {
 }
 
 func (r *AnalyticsRepository) RecordView(ctx context.Context, postID, viewerIP, referrer, source, userAgent string) error {
+	// viewer_ip is INET — pass nil instead of empty string so PostgreSQL stores NULL
+	var ip interface{} = viewerIP
+	if viewerIP == "" {
+		ip = nil
+	}
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO post_views (post_id, viewer_ip, referrer, source, user_agent)
 		 VALUES ($1, $2, $3, $4, $5)`,
-		postID, viewerIP, referrer, source, userAgent,
+		postID, ip, referrer, source, userAgent,
 	)
 	if err != nil {
 		return err

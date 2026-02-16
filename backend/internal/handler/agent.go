@@ -1,7 +1,10 @@
 package handler
 
 import (
+	"context"
 	"fmt"
+	"log"
+	"net"
 	"net/http"
 	"strings"
 
@@ -13,11 +16,12 @@ type AgentHandler struct {
 	posts       *repository.PostRepository
 	tags        *repository.TagRepository
 	users       *repository.UserRepository
+	analytics   *repository.AnalyticsRepository
 	frontendURL string
 }
 
-func NewAgentHandler(posts *repository.PostRepository, tags *repository.TagRepository, users *repository.UserRepository, frontendURL string) *AgentHandler {
-	return &AgentHandler{posts: posts, tags: tags, users: users, frontendURL: frontendURL}
+func NewAgentHandler(posts *repository.PostRepository, tags *repository.TagRepository, users *repository.UserRepository, analytics *repository.AnalyticsRepository, frontendURL string) *AgentHandler {
+	return &AgentHandler{posts: posts, tags: tags, users: users, analytics: analytics, frontendURL: frontendURL}
 }
 
 func (h *AgentHandler) ListPosts(w http.ResponseWriter, r *http.Request) {
@@ -82,6 +86,20 @@ func (h *AgentHandler) GetPost(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "post not found")
 		return
 	}
+
+	// Track as AI view
+	go func() {
+		ip := r.RemoteAddr
+		if fwd := r.Header.Get("X-Real-Ip"); fwd != "" {
+			ip = fwd
+		}
+		if host, _, err := net.SplitHostPort(ip); err == nil {
+			ip = host
+		}
+		if err := h.analytics.RecordView(context.Background(), post.ID, ip, "", "agent", r.Header.Get("User-Agent")); err != nil {
+			log.Printf("agent: RecordView error: %v", err)
+		}
+	}()
 
 	// Return structured markdown with metadata
 	var b strings.Builder

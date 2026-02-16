@@ -24,6 +24,7 @@ func New(pool *pgxpool.Pool, cfg *config.Config) *chi.Mux {
 	r.Use(middleware.Logging)
 	r.Use(chimw.Recoverer)
 	r.Use(middleware.CORS(cfg.FrontendURL))
+	r.Use(middleware.GlobalRateLimit(200)) // 200 req/min per IP
 
 	// Repositories
 	userRepo := repository.NewUserRepository(pool)
@@ -49,7 +50,7 @@ func New(pool *pgxpool.Pool, cfg *config.Config) *chi.Mux {
 
 	// Handlers
 	healthH := handler.NewHealthHandler()
-	authH := handler.NewAuthHandler(authService, cfg, loginLogRepo)
+	authH := handler.NewAuthHandler(authService, cfg, loginLogRepo, pool)
 	socialH := handler.NewSocialHandler(socialService, followRepo, likeRepo, bookmarkRepo, commentRepo, postRepo, userRepo)
 	postH := handler.NewPostHandler(postService, postRepo, socialH)
 	userH := handler.NewUserHandler(userRepo, postRepo, followRepo, socialH)
@@ -57,7 +58,7 @@ func New(pool *pgxpool.Pool, cfg *config.Config) *chi.Mux {
 	searchH := handler.NewSearchHandler(postRepo, socialH)
 	feedH := handler.NewFeedHandler(postRepo, cfg.FrontendURL, cfg.FrontendURL)
 	llmsH := handler.NewLLMSHandler(postRepo, cfg.FrontendURL)
-	agentH := handler.NewAgentHandler(postRepo, tagRepo, userRepo, cfg.FrontendURL)
+	agentH := handler.NewAgentHandler(postRepo, tagRepo, userRepo, analyticsRepo, cfg.FrontendURL)
 	apiKeyH := handler.NewApiKeyHandler(apiKeyRepo)
 	notifH := handler.NewNotificationHandler(notifRepo, pushRepo, notifService)
 	analyticsH := handler.NewAnalyticsHandler(analyticsRepo, postRepo)
@@ -71,8 +72,9 @@ func New(pool *pgxpool.Pool, cfg *config.Config) *chi.Mux {
 
 	// API v1
 	r.Route("/api/v1", func(r chi.Router) {
-		// Auth
+		// Auth (strict rate limit: 10 req/min per IP)
 		r.Route("/auth", func(r chi.Router) {
+			r.Use(middleware.AuthRateLimit())
 			r.Post("/magic-link", authH.SendMagicLink)
 			r.Get("/magic-link/verify", authH.VerifyMagicLink)
 			r.Post("/refresh", authH.Refresh)
@@ -180,9 +182,10 @@ func New(pool *pgxpool.Pool, cfg *config.Config) *chi.Mux {
 			r.Get("/referrers", analyticsH.Referrers)
 		})
 
-		// Agent API (API key auth)
+		// Agent API (API key auth + rate limit)
 		r.Route("/agent", func(r chi.Router) {
 			r.Use(middleware.ApiKeyAuth(pool))
+			r.Use(middleware.ApiKeyRateLimit(100)) // 100 req/min per API key
 			r.Get("/posts", agentH.ListPosts)
 			r.Get("/posts/{slug}", agentH.GetPost)
 			r.Get("/search", agentH.Search)
@@ -199,10 +202,11 @@ func New(pool *pgxpool.Pool, cfg *config.Config) *chi.Mux {
 		})
 	})
 
-	// MCP Server (API key auth, Streamable HTTP)
-	mcpServer := mcp.NewMCPServer(postRepo, tagRepo, userRepo, cfg.FrontendURL)
+	// MCP Server (API key auth + rate limit, Streamable HTTP)
+	mcpServer := mcp.NewMCPServer(postRepo, tagRepo, userRepo, analyticsRepo, cfg.FrontendURL)
 	r.Route("/mcp", func(r chi.Router) {
 		r.Use(middleware.ApiKeyAuth(pool))
+		r.Use(middleware.ApiKeyRateLimit(100)) // 100 req/min per API key
 		r.Handle("/", mcpServer)
 	})
 

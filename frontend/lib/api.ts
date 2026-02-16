@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { API_URL } from "./constants";
 
 class ApiClient {
@@ -25,6 +26,25 @@ class ApiClient {
       credentials: "include",
     });
 
+    // Handle banned user (403)
+    if (res.status === 403) {
+      const body = await res.json().catch(() => ({}));
+      const message = body.error || "Access denied";
+      if (message.toLowerCase().includes("suspended") || message.toLowerCase().includes("banned")) {
+        toast.error("Account Suspended", {
+          description: "Your account has been suspended. Contact support if you believe this is an error.",
+          duration: 8000,
+        });
+        // Redirect to login only if not already there
+        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+          setTimeout(() => {
+            window.location.href = "/login";
+          }, 2000);
+        }
+      }
+      throw new ApiError(403, message, body);
+    }
+
     if (res.status === 401) {
       // Try refreshing the token (with mutex to prevent concurrent refreshes)
       const refreshed = await this.refreshWithLock();
@@ -38,15 +58,40 @@ class ApiClient {
           if (retryRes.status === 204) return undefined as T;
           return retryRes.json();
         }
+
+        // Check if retry got 403 (banned after refresh)
+        if (retryRes.status === 403) {
+          const body = await retryRes.json().catch(() => ({}));
+          const message = body.error || "Access denied";
+          if (message.toLowerCase().includes("suspended") || message.toLowerCase().includes("banned")) {
+            toast.error("Account Suspended", {
+              description: "Your account has been suspended. Contact support if you believe this is an error.",
+              duration: 8000,
+            });
+            if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+              setTimeout(() => {
+                window.location.href = "/login";
+              }, 2000);
+            }
+          }
+          throw new ApiError(403, message, body);
+        }
+
         // Retry failed with non-401 error - throw that error, don't redirect
         if (retryRes.status !== 401) {
           const body = await retryRes.json().catch(() => ({}));
           throw new ApiError(retryRes.status, body.error || retryRes.statusText, body);
         }
       }
-      // Only redirect if caller didn't opt out
+      // Token expired and refresh failed - show toast and redirect
       if (!opts?.noRedirect && typeof window !== "undefined") {
-        window.location.href = "/login";
+        toast.error("Session Expired", {
+          description: "Your session has expired. Please sign in again.",
+          duration: 5000,
+        });
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 1500);
       }
       throw new ApiError(401, "Unauthorized", {});
     }

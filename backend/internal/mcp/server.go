@@ -10,21 +10,36 @@ import (
 	"github.com/nowbind/nowbind/internal/repository"
 )
 
+type mcpContextKey string
+
+const rpcDetailKey mcpContextKey = "mcp_rpc_detail"
+
+// RPCDetail is a mutable container stored in context for MCP request detail logging.
+// The middleware places a pointer in context; the MCP handler writes to it.
+type RPCDetail struct {
+	Value string
+}
+
+// RPCDetailContextKey returns the context key used to store RPCDetail.
+func RPCDetailContextKey() interface{} { return rpcDetailKey }
+
 // MCPServer implements a simplified MCP server using Streamable HTTP transport.
 // This implements the core MCP protocol for resources and tools.
 type MCPServer struct {
 	posts       *repository.PostRepository
 	tags        *repository.TagRepository
 	users       *repository.UserRepository
+	analytics   *repository.AnalyticsRepository
 	frontendURL string
 	mu          sync.RWMutex
 }
 
-func NewMCPServer(posts *repository.PostRepository, tags *repository.TagRepository, users *repository.UserRepository, frontendURL string) *MCPServer {
+func NewMCPServer(posts *repository.PostRepository, tags *repository.TagRepository, users *repository.UserRepository, analytics *repository.AnalyticsRepository, frontendURL string) *MCPServer {
 	return &MCPServer{
 		posts:       posts,
 		tags:        tags,
 		users:       users,
+		analytics:   analytics,
 		frontendURL: frontendURL,
 	}
 }
@@ -71,6 +86,9 @@ func (s *MCPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var result interface{}
 	var rpcErr *rpcError
 
+	// Build a detail string for logging (e.g. "tools/call:search_posts")
+	detail := req.Method
+
 	switch req.Method {
 	case "initialize":
 		result = s.handleInitialize()
@@ -82,8 +100,20 @@ func (s *MCPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		result = s.handleToolsList()
 	case "tools/call":
 		result, rpcErr = s.handleToolsCall(ctx, req.Params)
+		// Extract tool name for logging
+		var toolReq struct {
+			Name string `json:"name"`
+		}
+		if json.Unmarshal(req.Params, &toolReq) == nil && toolReq.Name != "" {
+			detail = "tools/call:" + toolReq.Name
+		}
 	default:
 		rpcErr = &rpcError{Code: -32601, Message: fmt.Sprintf("Method not found: %s", req.Method)}
+	}
+
+	// Write detail to context-stored RPCDetail so middleware can log it
+	if rd, ok := ctx.Value(rpcDetailKey).(*RPCDetail); ok {
+		rd.Value = detail
 	}
 
 	resp := jsonrpcResponse{

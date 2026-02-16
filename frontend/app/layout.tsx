@@ -9,6 +9,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { SwRegister } from "@/components/pwa/sw-register";
 import { OfflineStatus } from "@/components/pwa/offline-status";
+import { Toaster } from "sonner";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-sans",
@@ -134,6 +135,7 @@ export default function RootLayout({
                 <NextTopLoader color="var(--primary)" showSpinner={false} />
                 <SearchDialog />
                 {children}
+                <Toaster richColors position="top-center" />
                 <InstallPrompt />
                 <OfflineStatus />
               </TooltipProvider>

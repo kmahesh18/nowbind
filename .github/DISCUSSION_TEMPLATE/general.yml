@@ -1,0 +1,15 @@
+title: "[General]: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Start a discussion about NowBind - questions, ideas, feedback, or anything else.
+
+  - type: textarea
+    id: body
+    attributes:
+      label: What's on your mind?
+      description: Share your thoughts.
+    validations:
+      required: true

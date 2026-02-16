@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"net"
 	"net/http"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/nowbind/nowbind/internal/mcp"
 )
 
 const ApiKeyUserIDKey contextKey = "api_key_user_id"
@@ -56,24 +58,37 @@ func ApiKeyAuth(pool *pgxpool.Pool) func(http.Handler) http.Handler {
 			ctx := context.WithValue(r.Context(), ApiKeyUserIDKey, userID)
 			ctx = context.WithValue(ctx, apiKeyIDKey, keyID)
 
+			// Place an RPCDetail pointer in context so the MCP handler can write to it
+			rpcDetail := &mcp.RPCDetail{}
+			ctx = context.WithValue(ctx, mcp.RPCDetailContextKey(), rpcDetail)
+
 			// Wrap response writer to capture status code
 			sw := &statusWriter{ResponseWriter: w, code: http.StatusOK}
 			next.ServeHTTP(sw, r.WithContext(ctx))
 
 			// Log usage asynchronously
-			ip := r.RemoteAddr
+			ip := stripPort(r.RemoteAddr)
 			if fwd := r.Header.Get("X-Real-Ip"); fwd != "" {
-				ip = fwd
+				ip = stripPort(fwd)
 			}
+			endpoint := r.URL.Path
+			detail := rpcDetail.Value
 			go func() {
 				pool.Exec(context.Background(),
-					`INSERT INTO api_key_usage (api_key_id, endpoint, method, status_code, ip_address, user_agent)
-					 VALUES ($1, $2, $3, $4, $5::inet, $6)`,
-					keyID, r.URL.Path, r.Method, sw.code, ip, r.Header.Get("User-Agent"),
+					`INSERT INTO api_key_usage (api_key_id, endpoint, method, status_code, ip_address, user_agent, detail)
+					 VALUES ($1, $2, $3, $4, $5::inet, $6, $7)`,
+					keyID, endpoint, r.Method, sw.code, ip, r.Header.Get("User-Agent"), detail,
 				)
 			}()
 		})
 	}
+}
+
+func stripPort(addr string) string {
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		return host
+	}
+	return addr
 }
 
 func extractApiKey(r *http.Request) string {

@@ -318,17 +318,19 @@ export default function DocsPage() {
               </div>
               <p className="text-muted-foreground">
                 NowBind provides an MCP (Model Context Protocol) server that lets AI assistants
-                like Claude interact with your content directly via JSON-RPC.
+                like Claude interact with your content directly via JSON-RPC 2.0 over Streamable HTTP.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Endpoint: <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{siteUrl}/mcp/</code>
               </p>
 
-              <h3 className="text-lg font-semibold">Configuration</h3>
-              <p className="text-sm text-muted-foreground">
-                Add this to your <code className="rounded bg-muted px-1.5 py-0.5 text-xs">claude_desktop_config.json</code>:
-              </p>
-              <CodeBlock label="claude_desktop_config.json">{`{
+              <h3 className="text-lg font-semibold">Agent Configurations</h3>
+
+              <h4 className="text-sm font-semibold text-muted-foreground">Claude Code (CLI)</h4>
+              <CodeBlock label=".claude/settings.json">{`{
   "mcpServers": {
     "nowbind": {
-      "url": "${siteUrl}/api/v1/mcp",
+      "url": "${siteUrl}/mcp/",
       "headers": {
         "Authorization": "Bearer nb_your_api_key"
       }
@@ -336,7 +338,73 @@ export default function DocsPage() {
   }
 }`}</CodeBlock>
 
-              <h3 className="text-lg font-semibold">Resources</h3>
+              <h4 className="text-sm font-semibold text-muted-foreground">Claude Desktop</h4>
+              <CodeBlock label="claude_desktop_config.json">{`{
+  "mcpServers": {
+    "nowbind": {
+      "url": "${siteUrl}/mcp/",
+      "headers": {
+        "Authorization": "Bearer nb_your_api_key"
+      }
+    }
+  }
+}`}</CodeBlock>
+
+              <h4 className="text-sm font-semibold text-muted-foreground">GitHub Copilot (VS Code)</h4>
+              <CodeBlock label=".vscode/settings.json">{`{
+  "github.copilot.chat.mcp.servers": {
+    "nowbind": {
+      "type": "http",
+      "url": "${siteUrl}/mcp/",
+      "headers": {
+        "Authorization": "Bearer nb_your_api_key"
+      }
+    }
+  }
+}`}</CodeBlock>
+
+              <h4 className="text-sm font-semibold text-muted-foreground">Cursor</h4>
+              <CodeBlock label=".cursor/mcp.json">{`{
+  "mcpServers": {
+    "nowbind": {
+      "url": "${siteUrl}/mcp/",
+      "headers": {
+        "Authorization": "Bearer nb_your_api_key"
+      }
+    }
+  }
+}`}</CodeBlock>
+
+              <h4 className="text-sm font-semibold text-muted-foreground">Windsurf</h4>
+              <CodeBlock label="~/.codeium/windsurf/mcp_config.json">{`{
+  "mcpServers": {
+    "nowbind": {
+      "serverUrl": "${siteUrl}/mcp/",
+      "headers": {
+        "Authorization": "Bearer nb_your_api_key"
+      }
+    }
+  }
+}`}</CodeBlock>
+
+              <h4 className="text-sm font-semibold text-muted-foreground">Continue.dev</h4>
+              <CodeBlock label="~/.continue/config.yaml">{`mcpServers:
+  - name: nowbind
+    url: ${siteUrl}/mcp/
+    headers:
+      Authorization: "Bearer nb_your_api_key"`}</CodeBlock>
+
+              <h4 className="text-sm font-semibold text-muted-foreground">Cline (VS Code)</h4>
+              <p className="text-xs text-muted-foreground">
+                In VS Code, open Cline settings &rarr; MCP Servers &rarr; Add Remote Server:
+              </p>
+              <CodeBlock label="Cline MCP Config">{`Server URL: ${siteUrl}/mcp/
+Header: Authorization: Bearer nb_your_api_key`}</CodeBlock>
+
+              <h4 className="text-sm font-semibold text-muted-foreground">OpenAI Codex CLI</h4>
+              <CodeBlock label="codex CLI">{`codex --mcp-config '{"nowbind":{"url":"${siteUrl}/mcp/","headers":{"Authorization":"Bearer nb_your_api_key"}}}'`}</CodeBlock>
+
+              <h3 className="mt-6 text-lg font-semibold">Resources</h3>
               <div className="space-y-2 rounded-lg border p-4">
                 <div className="flex items-center justify-between">
                   <code className="text-sm">nowbind://posts</code>
@@ -347,8 +415,16 @@ export default function DocsPage() {
                   <span className="text-xs text-muted-foreground">Read a specific post</span>
                 </div>
                 <div className="flex items-center justify-between">
+                  <code className="text-sm">nowbind://authors</code>
+                  <span className="text-xs text-muted-foreground">List all authors</span>
+                </div>
+                <div className="flex items-center justify-between">
                   <code className="text-sm">nowbind://tags</code>
                   <span className="text-xs text-muted-foreground">Browse all tags</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <code className="text-sm">nowbind://feed</code>
+                  <span className="text-xs text-muted-foreground">Recent posts feed</span>
                 </div>
               </div>
 
@@ -364,7 +440,11 @@ export default function DocsPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <code className="text-sm">list_posts</code>
-                  <span className="text-xs text-muted-foreground">List posts with pagination</span>
+                  <span className="text-xs text-muted-foreground">List posts with optional tag filter</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <code className="text-sm">get_author</code>
+                  <span className="text-xs text-muted-foreground">Get author info by username</span>
                 </div>
               </div>
             </section>
@@ -376,21 +456,33 @@ export default function DocsPage() {
                 <h2 className="text-2xl font-bold">Rate Limits</h2>
               </div>
               <p className="text-muted-foreground">
-                Each API key has a default rate limit of <strong>100 requests per minute</strong>.
+                Rate limits are enforced at multiple levels to prevent abuse.
               </p>
               <div className="rounded-lg border p-4">
-                <div className="space-y-2 text-sm">
+                <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Default limit</span>
+                    <span className="text-muted-foreground">Global (per IP)</span>
+                    <span className="font-medium">200 req/min</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Auth endpoints (per IP)</span>
+                    <span className="font-medium">10 req/min</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Agent API (per API key)</span>
                     <span className="font-medium">100 req/min</span>
                   </div>
                   <div className="flex justify-between">
+                    <span className="text-muted-foreground">MCP Server (per API key)</span>
+                    <span className="font-medium">100 req/min</span>
+                  </div>
+                  <div className="border-t pt-2 flex justify-between">
                     <span className="text-muted-foreground">Status when exceeded</span>
                     <code className="text-xs">429 Too Many Requests</code>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Headers</span>
-                    <code className="text-xs">X-RateLimit-*, Retry-After</code>
+                    <span className="text-muted-foreground">Retry header</span>
+                    <code className="text-xs">Retry-After: 60</code>
                   </div>
                 </div>
               </div>

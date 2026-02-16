@@ -7,7 +7,7 @@ import { Logo } from "@/components/shared/logo";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { API_URL } from "@/lib/constants";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { Mail, ArrowRight, Loader2 } from "lucide-react";
@@ -70,8 +70,18 @@ function LoginContent() {
     try {
       await api.post("/auth/magic-link", { email });
       setSent(true);
-    } catch {
-      setError("Failed to send magic link. Please try again.");
+    } catch (err: unknown) {
+      if (err && typeof err === "object" && "status" in err) {
+        const status = (err as ApiError).status;
+        const message = (err as ApiError).message || "";
+        if (status === 403 || message.toLowerCase().includes("suspended") || message.toLowerCase().includes("banned")) {
+          setError("This account has been suspended. Contact support if you believe this is an error.");
+        } else {
+          setError(message || "Failed to send magic link. Please try again.");
+        }
+      } else {
+        setError("Failed to send magic link. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

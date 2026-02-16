@@ -7,10 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nowbind/nowbind/internal/config"
 	"github.com/nowbind/nowbind/internal/middleware"
 	"github.com/nowbind/nowbind/internal/repository"
@@ -21,10 +24,11 @@ type AuthHandler struct {
 	auth     *service.AuthService
 	cfg      *config.Config
 	loginLog *repository.LoginLogRepository
+	pool     *pgxpool.Pool
 }
 
-func NewAuthHandler(auth *service.AuthService, cfg *config.Config, loginLog *repository.LoginLogRepository) *AuthHandler {
-	return &AuthHandler{auth: auth, cfg: cfg, loginLog: loginLog}
+func NewAuthHandler(auth *service.AuthService, cfg *config.Config, loginLog *repository.LoginLogRepository, pool *pgxpool.Pool) *AuthHandler {
+	return &AuthHandler{auth: auth, cfg: cfg, loginLog: loginLog, pool: pool}
 }
 
 type magicLinkRequest struct {
@@ -40,6 +44,18 @@ func (h *AuthHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 
 	if req.Email == "" {
 		writeError(w, http.StatusBadRequest, "email is required")
+		return
+	}
+
+	// Check if user is banned before sending email
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	var banned bool
+	_ = h.pool.QueryRow(r.Context(),
+		`SELECT EXISTS(SELECT 1 FROM user_bans ub JOIN users u ON u.id = ub.user_id WHERE u.email = $1)`,
+		email,
+	).Scan(&banned)
+	if banned {
+		writeError(w, http.StatusForbidden, "account suspended")
 		return
 	}
 
@@ -287,12 +303,19 @@ func (h *AuthHandler) clearAuthCookies(w http.ResponseWriter) {
 }
 
 func (h *AuthHandler) logLogin(r *http.Request, userID, method string) {
-	ip := r.RemoteAddr
+	ip := stripPort(r.RemoteAddr)
 	if fwd := r.Header.Get("X-Real-Ip"); fwd != "" {
-		ip = fwd
+		ip = stripPort(fwd)
 	}
 	ua := r.Header.Get("User-Agent")
 	go h.loginLog.Log(context.Background(), userID, ip, ua, method)
+}
+
+func stripPort(addr string) string {
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		return host
+	}
+	return addr
 }
 
 func generateOAuthState() (string, error) {
