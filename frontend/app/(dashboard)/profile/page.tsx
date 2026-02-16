@@ -201,20 +201,20 @@ export default function ProfilePage() {
             onValueChange={setActiveTab}
             className="w-full"
           >
-            <TabsList className="w-full justify-start">
-              <TabsTrigger value="posts" className="gap-1.5">
+            <TabsList className="w-full justify-start overflow-x-auto">
+              <TabsTrigger value="posts" className="shrink-0 gap-1.5">
                 <FileText className="h-3.5 w-3.5" />
                 Posts
               </TabsTrigger>
-              <TabsTrigger value="followers" className="gap-1.5">
+              <TabsTrigger value="followers" className="shrink-0 gap-1.5">
                 <Users className="h-3.5 w-3.5" />
                 Followers
               </TabsTrigger>
-              <TabsTrigger value="following" className="gap-1.5">
+              <TabsTrigger value="following" className="shrink-0 gap-1.5">
                 <Users className="h-3.5 w-3.5" />
                 Following
               </TabsTrigger>
-              <TabsTrigger value="discover" className="gap-1.5">
+              <TabsTrigger value="discover" className="shrink-0 gap-1.5">
                 <UserPlus className="h-3.5 w-3.5" />
                 Discover
               </TabsTrigger>
