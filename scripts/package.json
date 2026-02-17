@@ -1,0 +1,29 @@
+{
+  "name": "nowbind-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "migrate": "node --loader ts-node/esm migrate-content.ts",
+    "migrate:dry-run": "node --loader ts-node/esm migrate-content.ts --dry-run"
+  },
+  "dependencies": {
+    "@tiptap/html": "^2.11.0",
+    "@tiptap/starter-kit": "^2.11.0",
+    "@tiptap/pm": "^2.11.0",
+    "@tiptap/extension-image": "^2.11.0",
+    "@tiptap/extension-link": "^2.11.0",
+    "@tiptap/extension-underline": "^2.11.0",
+    "@tiptap/extension-code-block-lowlight": "^2.11.0",
+    "@tiptap/extension-horizontal-rule": "^2.11.0",
+    "@tiptap/extension-youtube": "^2.11.0",
+    "lowlight": "^3.0.0",
+    "marked": "^15.0.0",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  }
+}

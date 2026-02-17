@@ -40,6 +40,7 @@ func New(pool *pgxpool.Pool, cfg *config.Config) *chi.Mux {
 	analyticsRepo := repository.NewAnalyticsRepository(pool)
 	pushRepo := repository.NewPushRepository(pool)
 	loginLogRepo := repository.NewLoginLogRepository(pool)
+	mediaRepo := repository.NewMediaRepository(pool)
 
 	// Services
 	emailService := service.NewEmailService(cfg)
@@ -47,6 +48,7 @@ func New(pool *pgxpool.Pool, cfg *config.Config) *chi.Mux {
 	postService := service.NewPostService(postRepo, tagRepo)
 	notifService := service.NewNotificationService(notifRepo, pushRepo, cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey, cfg.FrontendURL)
 	socialService := service.NewSocialService(followRepo, likeRepo, bookmarkRepo, commentRepo, notifRepo, userRepo, postRepo, notifService)
+	mediaService := service.NewMediaService(cfg, mediaRepo)
 
 	// Handlers
 	healthH := handler.NewHealthHandler()
@@ -62,6 +64,7 @@ func New(pool *pgxpool.Pool, cfg *config.Config) *chi.Mux {
 	apiKeyH := handler.NewApiKeyHandler(apiKeyRepo)
 	notifH := handler.NewNotificationHandler(notifRepo, pushRepo, notifService)
 	analyticsH := handler.NewAnalyticsHandler(analyticsRepo, postRepo)
+	mediaH := handler.NewMediaHandler(mediaService)
 
 	// Health
 	r.Get("/health", healthH.Health)
@@ -191,6 +194,12 @@ func New(pool *pgxpool.Pool, cfg *config.Config) *chi.Mux {
 			r.Get("/search", agentH.Search)
 			r.Get("/authors", agentH.ListAuthors)
 			r.Get("/tags", agentH.ListTags)
+		})
+
+		// Media upload
+		r.Route("/media", func(r chi.Router) {
+			r.Use(middleware.AuthMiddleware(cfg.JWTSecret, pool))
+			r.Post("/upload", mediaH.Upload)
 		})
 
 		// API Keys

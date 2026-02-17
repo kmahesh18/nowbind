@@ -19,27 +19,41 @@ type User struct {
 }
 
 type Post struct {
-	ID           string     `json:"id"`
-	AuthorID     string     `json:"author_id"`
-	Author       *User      `json:"author,omitempty"`
-	Slug         string     `json:"slug"`
-	Title        string     `json:"title"`
-	Subtitle     string     `json:"subtitle"`
-	Content      string     `json:"content"`
-	Excerpt      string     `json:"excerpt"`
-	Status       string     `json:"status"` // "draft" | "published"
-	ReadingTime  int        `json:"reading_time"`
-	LikeCount    int        `json:"like_count"`
-	CommentCount int        `json:"comment_count"`
-	IsLiked      bool       `json:"is_liked,omitempty"`
-	IsBookmarked bool       `json:"is_bookmarked,omitempty"`
-	PublishedAt  *time.Time `json:"published_at"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	Tags         []Tag      `json:"tags"`
-	AISummary    string     `json:"ai_summary"`
-	AIKeywords   []string   `json:"ai_keywords"`
-	StructuredMD string     `json:"structured_md"`
+	ID            string     `json:"id"`
+	AuthorID      string     `json:"author_id"`
+	Author        *User      `json:"author,omitempty"`
+	Slug          string     `json:"slug"`
+	Title         string     `json:"title"`
+	Subtitle      string     `json:"subtitle"`
+	Content       string     `json:"content"`
+	ContentJSON   *string    `json:"content_json,omitempty"`
+	ContentFormat string     `json:"content_format"`
+	Excerpt       string     `json:"excerpt"`
+	Status        string     `json:"status"` // "draft" | "published"
+	ReadingTime   int        `json:"reading_time"`
+	LikeCount     int        `json:"like_count"`
+	CommentCount  int        `json:"comment_count"`
+	IsLiked       bool       `json:"is_liked,omitempty"`
+	IsBookmarked  bool       `json:"is_bookmarked,omitempty"`
+	PublishedAt   *time.Time `json:"published_at"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+	Tags          []Tag      `json:"tags"`
+	AISummary     string     `json:"ai_summary"`
+	AIKeywords    []string   `json:"ai_keywords"`
+	StructuredMD  string     `json:"structured_md"`
+}
+
+type Media struct {
+	ID           string    `json:"id"`
+	UserID       string    `json:"user_id"`
+	Filename     string    `json:"filename"`
+	OriginalName string    `json:"original_name"`
+	MimeType     string    `json:"mime_type"`
+	SizeBytes    int64     `json:"size_bytes"`
+	URL          string    `json:"url"`
+	R2Key        string    `json:"r2_key"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type Tag struct {

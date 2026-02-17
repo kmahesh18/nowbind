@@ -148,11 +148,9 @@ export default function DashboardPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild>
-                        <Link href={`/editor/${post.id}`}>
-                          <Edit3 className="mr-2 h-4 w-4" />
-                          Edit
-                        </Link>
+                      <DropdownMenuItem onClick={() => router.push(`/editor/${post.slug}`)}>
+                        <Edit3 className="mr-2 h-4 w-4" />
+                        Edit
                       </DropdownMenuItem>
                       {post.status === "draft" ? (
                         <DropdownMenuItem

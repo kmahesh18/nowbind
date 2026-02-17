@@ -83,6 +83,7 @@ func (r *PostRepository) List(ctx context.Context, params ListPostsParams) ([]mo
 		SELECT p.id, p.author_id, p.slug, p.title, p.subtitle, p.excerpt, p.status,
 		       p.reading_time, p.published_at, p.created_at, p.updated_at,
 		       p.ai_summary, p.ai_keywords, p.like_count, p.comment_count,
+		       p.content_json, p.content_format,
 		       u.id, u.email, u.username, u.display_name, u.avatar_url
 		FROM posts p
 		JOIN users u ON u.id = p.author_id
@@ -105,6 +106,7 @@ func (r *PostRepository) List(ctx context.Context, params ListPostsParams) ([]mo
 			&p.ID, &p.AuthorID, &p.Slug, &p.Title, &p.Subtitle, &p.Excerpt, &p.Status,
 			&p.ReadingTime, &p.PublishedAt, &p.CreatedAt, &p.UpdatedAt,
 			&p.AISummary, &p.AIKeywords, &p.LikeCount, &p.CommentCount,
+			&p.ContentJSON, &p.ContentFormat,
 			&author.ID, &author.Email, &author.Username, &author.DisplayName, &author.AvatarURL,
 		); err != nil {
 			return nil, 0, fmt.Errorf("scanning post: %w", err)
@@ -152,6 +154,7 @@ func (r *PostRepository) GetBySlug(ctx context.Context, slug string) (*model.Pos
 		`SELECT p.id, p.author_id, p.slug, p.title, p.subtitle, p.content, p.excerpt,
 		        p.status, p.reading_time, p.published_at, p.created_at, p.updated_at,
 		        p.ai_summary, p.ai_keywords, p.structured_md, p.like_count, p.comment_count,
+		        p.content_json, p.content_format,
 		        u.id, u.email, u.username, u.display_name, u.avatar_url
 		 FROM posts p JOIN users u ON u.id = p.author_id
 		 WHERE p.slug = $1`, slug,
@@ -159,6 +162,7 @@ func (r *PostRepository) GetBySlug(ctx context.Context, slug string) (*model.Pos
 		&p.ID, &p.AuthorID, &p.Slug, &p.Title, &p.Subtitle, &p.Content, &p.Excerpt,
 		&p.Status, &p.ReadingTime, &p.PublishedAt, &p.CreatedAt, &p.UpdatedAt,
 		&p.AISummary, &p.AIKeywords, &p.StructuredMD, &p.LikeCount, &p.CommentCount,
+		&p.ContentJSON, &p.ContentFormat,
 		&author.ID, &author.Email, &author.Username, &author.DisplayName, &author.AvatarURL,
 	)
 	if err != nil {
@@ -193,12 +197,14 @@ func (r *PostRepository) GetByID(ctx context.Context, id string) (*model.Post, e
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, author_id, slug, title, subtitle, content, excerpt, status,
 		        reading_time, published_at, created_at, updated_at,
-		        ai_summary, ai_keywords, structured_md
+		        ai_summary, ai_keywords, structured_md,
+		        content_json, content_format
 		 FROM posts WHERE id = $1`, id,
 	).Scan(
 		&p.ID, &p.AuthorID, &p.Slug, &p.Title, &p.Subtitle, &p.Content, &p.Excerpt,
 		&p.Status, &p.ReadingTime, &p.PublishedAt, &p.CreatedAt, &p.UpdatedAt,
 		&p.AISummary, &p.AIKeywords, &p.StructuredMD,
+		&p.ContentJSON, &p.ContentFormat,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -211,12 +217,13 @@ func (r *PostRepository) GetByID(ctx context.Context, id string) (*model.Post, e
 
 func (r *PostRepository) Create(ctx context.Context, post *model.Post) error {
 	return r.pool.QueryRow(ctx,
-		`INSERT INTO posts (author_id, slug, title, subtitle, content, excerpt, status, reading_time, ai_summary, ai_keywords, structured_md)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		`INSERT INTO posts (author_id, slug, title, subtitle, content, excerpt, status, reading_time, ai_summary, ai_keywords, structured_md, content_json, content_format)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		 RETURNING id, created_at, updated_at`,
 		post.AuthorID, post.Slug, post.Title, post.Subtitle, post.Content,
 		post.Excerpt, post.Status, post.ReadingTime,
 		post.AISummary, post.AIKeywords, post.StructuredMD,
+		post.ContentJSON, post.ContentFormat,
 	).Scan(&post.ID, &post.CreatedAt, &post.UpdatedAt)
 }
 
@@ -224,10 +231,12 @@ func (r *PostRepository) Update(ctx context.Context, post *model.Post) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE posts SET title = $2, subtitle = $3, content = $4, excerpt = $5,
 		        slug = $6, reading_time = $7, ai_summary = $8, ai_keywords = $9,
-		        structured_md = $10, updated_at = NOW()
+		        structured_md = $10, content_json = $11, content_format = $12,
+		        updated_at = NOW()
 		 WHERE id = $1`,
 		post.ID, post.Title, post.Subtitle, post.Content, post.Excerpt,
 		post.Slug, post.ReadingTime, post.AISummary, post.AIKeywords, post.StructuredMD,
+		post.ContentJSON, post.ContentFormat,
 	)
 	return err
 }
@@ -297,6 +306,7 @@ func (r *PostRepository) Search(ctx context.Context, query string, page, perPage
 		`SELECT p.id, p.author_id, p.slug, p.title, p.subtitle, p.excerpt, p.status,
 		        p.reading_time, p.published_at, p.created_at, p.updated_at,
 		        p.ai_summary, p.ai_keywords, p.like_count, p.comment_count,
+		        p.content_json, p.content_format,
 		        u.id, u.email, u.username, u.display_name, u.avatar_url,
 		        ts_rank(p.search_vector, plainto_tsquery('english', $1)) AS rank
 		 FROM posts p JOIN users u ON u.id = p.author_id
@@ -319,6 +329,7 @@ func (r *PostRepository) Search(ctx context.Context, query string, page, perPage
 			&p.ID, &p.AuthorID, &p.Slug, &p.Title, &p.Subtitle, &p.Excerpt, &p.Status,
 			&p.ReadingTime, &p.PublishedAt, &p.CreatedAt, &p.UpdatedAt,
 			&p.AISummary, &p.AIKeywords, &p.LikeCount, &p.CommentCount,
+			&p.ContentJSON, &p.ContentFormat,
 			&author.ID, &author.Email, &author.Username, &author.DisplayName, &author.AvatarURL,
 			&rank,
 		); err != nil {

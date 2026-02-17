@@ -78,7 +78,11 @@ export default async function PostPage({ params }: Props) {
       <main className="flex-1">
         <article className="mx-auto max-w-3xl px-4 py-8">
           <PostHeader post={post} />
-          <PostContent content={post.content} />
+          <PostContent
+            content={post.content}
+            contentJSON={post.content_json}
+            contentFormat={post.content_format}
+          />
         </article>
 
         <div className="mx-auto max-w-3xl space-y-12 px-4 pb-12">

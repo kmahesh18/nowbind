@@ -4,15 +4,14 @@ import { useState, useEffect, useCallback, use } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PostContent } from "@/components/post/post-content";
+import { BlockEditor } from "@/components/editor/block-editor";
+import { useMediaUpload } from "@/lib/hooks/use-media-upload";
 import { api } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Post } from "@/lib/types";
-import { Save, Send, Eye, Edit3, X, Loader2 } from "lucide-react";
+import type { JSONContent } from "novel";
+import { Save, Send, X, Loader2 } from "lucide-react";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -21,10 +20,12 @@ interface Props {
 export default function EditPostPage({ params }: Props) {
   const { id } = use(params);
   const router = useRouter();
+  const { uploadMedia } = useMediaUpload();
   const [post, setPost] = useState<Post | null>(null);
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
-  const [content, setContent] = useState("");
+  const [contentJSON, setContentJSON] = useState<JSONContent | undefined>();
+  const [initialContent, setInitialContent] = useState<JSONContent | undefined>();
   const [excerpt, setExcerpt] = useState("");
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -38,9 +39,18 @@ export default function EditPostPage({ params }: Props) {
         setPost(p);
         setTitle(p.title);
         setSubtitle(p.subtitle || "");
-        setContent(p.content);
         setExcerpt(p.excerpt || "");
         setTags(p.tags?.map((t) => t.name) || []);
+
+        if (p.content_format === "tiptap" && p.content_json) {
+          try {
+            const parsed = JSON.parse(p.content_json);
+            setInitialContent(parsed);
+            setContentJSON(parsed);
+          } catch {
+            // Fallback: empty editor
+          }
+        }
       })
       .catch(() => router.push("/dashboard"))
       .finally(() => setLoading(false));
@@ -59,12 +69,13 @@ export default function EditPostPage({ params }: Props) {
   };
 
   const handleSave = async () => {
+    if (!post) return;
     setSaving(true);
     try {
-      const updated = await api.put<Post>(`/posts/${id}`, {
+      const updated = await api.put<Post>(`/posts/${post.id}`, {
         title,
         subtitle,
-        content,
+        content_json: contentJSON ? JSON.stringify(contentJSON) : undefined,
         excerpt,
         tags,
       });
@@ -77,10 +88,11 @@ export default function EditPostPage({ params }: Props) {
   };
 
   const handlePublish = async () => {
+    if (!post) return;
     setSaving(true);
     try {
       await handleSave();
-      await api.post(`/posts/${id}/publish`);
+      await api.post(`/posts/${post.id}/publish`);
       if (post) {
         router.push(`/post/${post.slug}`);
       }
@@ -136,22 +148,26 @@ export default function EditPostPage({ params }: Props) {
             </div>
           </div>
 
-          <div className="mb-4 space-y-3">
-            <Input
-              placeholder="Post title..."
+          {/* Title & Subtitle — Ghost-style borderless */}
+          <div className="mb-2">
+            <input
+              placeholder="Post title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="font-bold text-foreground placeholder:text-muted-foreground"
+              className="w-full bg-transparent text-4xl font-bold text-foreground placeholder:text-muted-foreground/50 outline-none"
             />
-            <Input
-              placeholder="Subtitle (optional)"
+          </div>
+          <div className="mb-4">
+            <input
+              placeholder="Add a subtitle..."
               value={subtitle}
               onChange={(e) => setSubtitle(e.target.value)}
-              className="text-foreground/80 placeholder:text-muted-foreground"
+              className="w-full bg-transparent text-xl text-foreground/70 placeholder:text-muted-foreground/40 outline-none"
             />
           </div>
 
-          <div className="mb-4 flex flex-wrap items-center gap-2">
+          {/* Tags & Excerpt — compact row */}
+          <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-border/50 pb-4">
             {tags.map((tag) => (
               <Badge key={tag} variant="secondary" className="gap-1">
                 {tag}
@@ -160,7 +176,7 @@ export default function EditPostPage({ params }: Props) {
                 </button>
               </Badge>
             ))}
-            <Input
+            <input
               placeholder="Add tag..."
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
@@ -171,50 +187,23 @@ export default function EditPostPage({ params }: Props) {
                 }
               }}
               onBlur={addTag}
-              className="w-32 text-sm text-foreground placeholder:text-muted-foreground"
+              className="w-28 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 outline-none"
             />
-          </div>
-
-          <div className="mb-4">
-            <Input
+            <span className="text-border">|</span>
+            <input
               placeholder="Excerpt..."
               value={excerpt}
               onChange={(e) => setExcerpt(e.target.value)}
-              className="text-sm text-foreground/80 placeholder:text-muted-foreground"
+              className="flex-1 bg-transparent text-sm text-foreground/70 placeholder:text-muted-foreground/40 outline-none"
             />
           </div>
 
-          <Tabs defaultValue="write" className="w-full">
-            <TabsList>
-              <TabsTrigger value="write" className="gap-1">
-                <Edit3 className="h-3.5 w-3.5" />
-                Write
-              </TabsTrigger>
-              <TabsTrigger value="preview" className="gap-1">
-                <Eye className="h-3.5 w-3.5" />
-                Preview
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="write" className="mt-4">
-              <Textarea
-                placeholder="Write your post in Markdown..."
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="min-h-[500px] resize-none font-mono text-sm leading-relaxed"
-              />
-            </TabsContent>
-            <TabsContent value="preview" className="mt-4">
-              <div className="min-h-[500px] rounded-lg border p-6">
-                {content ? (
-                  <PostContent content={content} />
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Nothing to preview yet.
-                  </p>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
+          {/* Block Editor */}
+          <BlockEditor
+            initialContent={initialContent}
+            onChange={setContentJSON}
+            onImageUpload={uploadMedia}
+          />
         </div>
       </main>
     </div>

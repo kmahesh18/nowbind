@@ -20,6 +20,8 @@ export interface Post {
   title: string;
   subtitle: string;
   content: string;
+  content_json?: string;
+  content_format: "markdown" | "tiptap";
   excerpt: string;
   status: "draft" | "published";
   reading_time: number;

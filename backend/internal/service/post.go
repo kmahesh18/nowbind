@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -20,19 +21,21 @@ func NewPostService(posts *repository.PostRepository, tags *repository.TagReposi
 }
 
 type CreatePostInput struct {
-	Title    string   `json:"title"`
-	Subtitle string   `json:"subtitle"`
-	Content  string   `json:"content"`
-	Excerpt  string   `json:"excerpt"`
-	Tags     []string `json:"tags"`
+	Title       string   `json:"title"`
+	Subtitle    string   `json:"subtitle"`
+	Content     string   `json:"content"`
+	ContentJSON string   `json:"content_json"`
+	Excerpt     string   `json:"excerpt"`
+	Tags        []string `json:"tags"`
 }
 
 type UpdatePostInput struct {
-	Title    string   `json:"title"`
-	Subtitle string   `json:"subtitle"`
-	Content  string   `json:"content"`
-	Excerpt  string   `json:"excerpt"`
-	Tags     []string `json:"tags"`
+	Title       string   `json:"title"`
+	Subtitle    string   `json:"subtitle"`
+	Content     string   `json:"content"`
+	ContentJSON string   `json:"content_json"`
+	Excerpt     string   `json:"excerpt"`
+	Tags        []string `json:"tags"`
 }
 
 func (s *PostService) Create(ctx context.Context, authorID string, input CreatePostInput) (*model.Post, error) {
@@ -40,20 +43,32 @@ func (s *PostService) Create(ctx context.Context, authorID string, input CreateP
 		return nil, fmt.Errorf("title is required")
 	}
 
+	contentText := input.Content
+	var contentJSON *string
+	contentFormat := "markdown"
+
+	if input.ContentJSON != "" {
+		contentJSON = &input.ContentJSON
+		contentFormat = "tiptap"
+		contentText = extractTextFromTipTap(input.ContentJSON)
+	}
+
 	post := &model.Post{
-		AuthorID:    authorID,
-		Slug:        pkg.UniqueSlug(input.Title),
-		Title:       input.Title,
-		Subtitle:    input.Subtitle,
-		Content:     input.Content,
-		Excerpt:     input.Excerpt,
-		Status:      "draft",
-		ReadingTime: pkg.EstimateReadingTime(input.Content),
+		AuthorID:      authorID,
+		Slug:          pkg.UniqueSlug(input.Title),
+		Title:         input.Title,
+		Subtitle:      input.Subtitle,
+		Content:       contentText,
+		ContentJSON:   contentJSON,
+		ContentFormat: contentFormat,
+		Excerpt:       input.Excerpt,
+		Status:        "draft",
+		ReadingTime:   pkg.EstimateReadingTime(contentText),
 	}
 
 	// Generate AI metadata
-	post.AISummary = generateSummary(input.Content, input.Excerpt)
-	post.AIKeywords = extractKeywords(input.Title, input.Content)
+	post.AISummary = generateSummary(contentText, input.Excerpt)
+	post.AIKeywords = extractKeywords(input.Title, contentText)
 	post.StructuredMD = generateStructuredMD(post)
 
 	if err := s.posts.Create(ctx, post); err != nil {
@@ -93,15 +108,22 @@ func (s *PostService) Update(ctx context.Context, postID, authorID string, input
 	if input.Subtitle != "" {
 		post.Subtitle = input.Subtitle
 	}
-	post.Content = input.Content
 	if input.Excerpt != "" {
 		post.Excerpt = input.Excerpt
 	}
-	post.ReadingTime = pkg.EstimateReadingTime(input.Content)
+
+	contentText := input.Content
+	if input.ContentJSON != "" {
+		post.ContentJSON = &input.ContentJSON
+		post.ContentFormat = "tiptap"
+		contentText = extractTextFromTipTap(input.ContentJSON)
+	}
+	post.Content = contentText
+	post.ReadingTime = pkg.EstimateReadingTime(contentText)
 
 	// Regenerate AI metadata
-	post.AISummary = generateSummary(input.Content, input.Excerpt)
-	post.AIKeywords = extractKeywords(post.Title, input.Content)
+	post.AISummary = generateSummary(contentText, input.Excerpt)
+	post.AIKeywords = extractKeywords(post.Title, contentText)
 	post.StructuredMD = generateStructuredMD(post)
 
 	if err := s.posts.Update(ctx, post); err != nil {
@@ -218,6 +240,41 @@ func extractKeywords(title, content string) []string {
 		keywords = keywords[:10]
 	}
 	return keywords
+}
+
+// extractTextFromTipTap walks a TipTap JSON document tree and collects all text content.
+func extractTextFromTipTap(jsonContent string) string {
+	var doc map[string]interface{}
+	if err := json.Unmarshal([]byte(jsonContent), &doc); err != nil {
+		return ""
+	}
+	var b strings.Builder
+	walkTipTapNode(doc, &b)
+	return strings.TrimSpace(b.String())
+}
+
+func walkTipTapNode(node map[string]interface{}, b *strings.Builder) {
+	// If this node has text, write it
+	if text, ok := node["text"].(string); ok {
+		b.WriteString(text)
+	}
+
+	// Recurse into content array
+	if content, ok := node["content"].([]interface{}); ok {
+		for _, child := range content {
+			if childNode, ok := child.(map[string]interface{}); ok {
+				walkTipTapNode(childNode, b)
+			}
+		}
+	}
+
+	// Add newlines after block-level nodes
+	nodeType, _ := node["type"].(string)
+	switch nodeType {
+	case "paragraph", "heading", "blockquote", "codeBlock", "bulletList",
+		"orderedList", "listItem", "horizontalRule", "callout":
+		b.WriteString("\n\n")
+	}
 }
 
 func generateStructuredMD(post *model.Post) string {

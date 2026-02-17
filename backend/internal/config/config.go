@@ -34,6 +34,13 @@ type Config struct {
 	// Web Push (VAPID)
 	VAPIDPublicKey  string
 	VAPIDPrivateKey string
+
+	// Cloudflare R2 (S3-compatible)
+	R2AccountID   string
+	R2AccessKeyID string
+	R2SecretKey   string
+	R2BucketName  string
+	R2PublicURL   string
 }
 
 func Load() (*Config, error) {
@@ -60,6 +67,12 @@ func Load() (*Config, error) {
 
 		VAPIDPublicKey:  getEnv("VAPID_PUBLIC_KEY", ""),
 		VAPIDPrivateKey: getEnv("VAPID_PRIVATE_KEY", ""),
+
+		R2AccountID:   getEnv("R2_ACCOUNT_ID", ""),
+		R2AccessKeyID: getEnv("R2_ACCESS_KEY_ID", ""),
+		R2SecretKey:   getEnv("R2_SECRET_KEY", ""),
+		R2BucketName:  getEnv("R2_BUCKET_NAME", ""),
+		R2PublicURL:   getEnv("R2_PUBLIC_URL", ""),
 	}
 
 	// Auto-detect DB mode from hostname if not set
