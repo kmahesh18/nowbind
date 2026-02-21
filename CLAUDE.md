@@ -6,7 +6,7 @@ Open-source blogging platform where every post is both a beautiful article and a
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Go 1.25, chi v5 router, pgx/v5 (PostgreSQL driver) |
+| Backend | Go 1.26, chi v5 router, pgx/v5 (PostgreSQL driver) |
 | Frontend | Next.js 16 (App Router), React 19, TypeScript 5 |
 | Database | PostgreSQL 16+ (uuid-ossp, pg_trgm extensions) |
 | Styling | Tailwind CSS v4, shadcn/ui, Lucide icons |
@@ -177,17 +177,3 @@ New migrations: use `NNN_description.sql` format with `IF NOT EXISTS`/`IF EXISTS
 - API calls via `lib/api.ts` singleton (`api.get()`, `api.post()`, etc.)
 - Toast notifications via `sonner`
 - Icons from `lucide-react`
-
-## Recent Changes (Feature Parity Phase 1)
-
-- TipTap block editor replacing markdown editor (content_json + content_format support)
-- Feature images with Cloudflare R2 upload
-- Featured post toggle with star badges
-- Custom slug editing in post settings sidebar
-- Post settings panel (Ghost-style slide-out)
-- Live word count in editor
-- Dashboard filters (All/Drafts/Published), sort, search
-- Enhanced settings page (social links, SEO metadata, export data, delete account)
-- Media upload service via Cloudflare R2
-- Security headers middleware
-- Autosave hook for editor
