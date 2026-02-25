@@ -22,11 +22,17 @@ type Config struct {
 	GitHubClientID     string
 	GitHubClientSecret string
 
-	// Email (Gmail OAuth2)
+	// Email
+	EmailProvider     string // "gmail" | "ses"
 	EmailSender       string
 	GmailClientID     string
 	GmailClientSecret string
 	GmailRefreshToken string
+
+	// AWS SES
+	AWSAccessKeyID     string
+	AWSSecretAccessKey string
+	AWSRegion          string
 
 	// Cookie domain for cross-subdomain sharing (e.g. ".niheshr.com")
 	CookieDomain string
@@ -60,10 +66,15 @@ func Load() (*Config, error) {
 		GitHubClientID:     getEnv("GITHUB_CLIENT_ID", ""),
 		GitHubClientSecret: getEnv("GITHUB_CLIENT_SECRET", ""),
 
+		EmailProvider:     getEnv("EMAIL_PROVIDER", "gmail"),
 		EmailSender:       getEnv("EMAIL_SENDER", ""),
 		GmailClientID:     getEnv("GMAIL_CLIENT_ID", ""),
 		GmailClientSecret: getEnv("GMAIL_CLIENT_SECRET", ""),
 		GmailRefreshToken: getEnv("GMAIL_REFRESH_TOKEN", ""),
+
+		AWSAccessKeyID:     getEnv("AWS_ACCESS_KEY_ID", ""),
+		AWSSecretAccessKey: getEnv("AWS_SECRET_ACCESS_KEY", ""),
+		AWSRegion:          getEnv("AWS_REGION", "ap-south-1"),
 
 		VAPIDPublicKey:  getEnv("VAPID_PUBLIC_KEY", ""),
 		VAPIDPrivateKey: getEnv("VAPID_PRIVATE_KEY", ""),
