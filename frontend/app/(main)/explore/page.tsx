@@ -73,9 +73,7 @@ function FeaturedSection({ posts }: { posts: Post[] }) {
             )}
             <div className="mt-3 flex items-center gap-2 text-xs text-white/60">
               {hero.author && (
-                <span>
-                  {hero.author.display_name || hero.author.username}
-                </span>
+                <span>{hero.author.display_name || hero.author.username}</span>
               )}
               <span>&middot;</span>
               <span>{hero.reading_time} min read</span>
@@ -160,7 +158,8 @@ function TrendingSection({ posts }: { posts: Post[] }) {
                         <AvatarImage src={post.author.avatar_url} alt="" />
                       )}
                       <AvatarFallback className="text-[8px]">
-                        {(post.author.display_name || post.author.username)?.[0]?.toUpperCase()}
+                        {(post.author.display_name ||
+                          post.author.username)?.[0]?.toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <span className="text-xs text-muted-foreground">
@@ -351,8 +350,13 @@ export default function ExplorePage() {
         })
         .then((r) => r.data || [])
         .catch(() => [] as Post[]),
-      api.get<Post[]>("/posts/trending", { limit: "6" }).catch(() => [] as Post[]),
-      api.get<{ data: Tag[] }>("/tags").then((r) => r.data || []).catch(() => [] as Tag[]),
+      api
+        .get<Post[]>("/posts/trending", { limit: "6" })
+        .catch(() => [] as Post[]),
+      api
+        .get<{ data: Tag[] }>("/tags")
+        .then((r) => (r.data || []).slice(0, 10))
+        .catch(() => [] as Tag[]),
     ])
       .then(([featuredRes, trendingRes, tagsRes]) => {
         setFeatured(featuredRes);
@@ -399,7 +403,7 @@ export default function ExplorePage() {
         })
         .finally(() => setFeedLoading(false));
     },
-    [user, authLoading]
+    [user, authLoading],
   );
 
   useEffect(() => {
@@ -435,7 +439,8 @@ export default function ExplorePage() {
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Explore</h1>
               <p className="mt-1 text-muted-foreground">
-                Discover stories, ideas, and expertise from the NowBind community.
+                Discover stories, ideas, and expertise from the NowBind
+                community.
               </p>
             </div>
             <button
@@ -494,7 +499,9 @@ export default function ExplorePage() {
                           <PostCard
                             key={post.id}
                             post={post}
-                            focused={activeTab === "latest" && focusedIndex === i}
+                            focused={
+                              activeTab === "latest" && focusedIndex === i
+                            }
                             data-post-index={i}
                           />
                         ))}
@@ -513,7 +520,12 @@ export default function ExplorePage() {
                     <PostListSkeleton />
                   ) : feedPosts.length === 0 ? (
                     <EmptyState message="Follow authors to see their posts here.">
-                      <Button variant="outline" size="sm" className="mt-3" asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-3"
+                        asChild
+                      >
                         <Link href="/explore">
                           Discover authors
                           <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
@@ -527,7 +539,9 @@ export default function ExplorePage() {
                           <PostCard
                             key={post.id}
                             post={post}
-                            focused={activeTab === "foryou" && focusedIndex === i}
+                            focused={
+                              activeTab === "foryou" && focusedIndex === i
+                            }
                             data-post-index={i}
                           />
                         ))}
