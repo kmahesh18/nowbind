@@ -38,7 +38,9 @@ export default function EditPostPage({ params }: Props) {
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [contentJSON, setContentJSON] = useState<JSONContent | undefined>();
-  const [initialContent, setInitialContent] = useState<JSONContent | undefined>();
+  const [initialContent, setInitialContent] = useState<
+    JSONContent | undefined
+  >();
   const [excerpt, setExcerpt] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [slug, setSlug] = useState("");
@@ -119,11 +121,15 @@ export default function EditPostPage({ params }: Props) {
     }
   }, []);
 
-  const { status: autosaveStatus, statusLabel, markDirty, markClean } =
-    useAutosave({
-      interval: 30_000,
-      onSave: performSave,
-    });
+  const {
+    status: autosaveStatus,
+    statusLabel,
+    markDirty,
+    markClean,
+  } = useAutosave({
+    interval: 30_000,
+    onSave: performSave,
+  });
 
   const handleFeatureImageUpload = async () => {
     const input = document.createElement("input");
@@ -249,7 +255,7 @@ export default function EditPostPage({ params }: Props) {
               )}
             </Button>
             {/* Row 2 on mobile (basis-full), inline on desktop (sm:basis-auto) */}
-            <div className="flex basis-full justify-end gap-2 sm:basis-auto">
+            <div className="flex items-center basis-full justify-end gap-2 sm:basis-auto">
               <Button
                 variant="ghost"
                 size="icon"
@@ -291,9 +297,7 @@ export default function EditPostPage({ params }: Props) {
                   className="mb-6 w-full max-h-96 rounded-lg object-cover"
                 />
               )}
-              <h1 className="text-4xl font-bold">
-                {title || "Untitled Post"}
-              </h1>
+              <h1 className="text-4xl font-bold">{title || "Untitled Post"}</h1>
               {subtitle && (
                 <p className="text-xl text-muted-foreground">{subtitle}</p>
               )}

@@ -259,7 +259,7 @@ export default function EditorPage() {
               )}
             </Button>
             {/* Row 2 on mobile (basis-full), inline on desktop (sm:basis-auto) */}
-            <div className="flex basis-full justify-end gap-2 sm:basis-auto">
+            <div className="flex items-center basis-full justify-end gap-2 sm:basis-auto">
               <Button
                 variant="ghost"
                 size="icon"
