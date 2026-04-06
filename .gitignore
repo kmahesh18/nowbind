@@ -55,3 +55,5 @@ docker-compose.override.yml
 
 # Scripts
 scripts/node_modules/
+
+docs/post-drafts
