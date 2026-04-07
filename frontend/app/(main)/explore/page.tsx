@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -16,8 +16,6 @@ import type { Post, Tag, PaginatedResponse } from "@/lib/types";
 import { useKeyboardNav } from "@/lib/hooks/use-keyboard-nav";
 import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
 import {
-  ChevronLeft,
-  ChevronRight,
   TrendingUp,
   Hash,
   Star,
@@ -26,6 +24,8 @@ import {
   ArrowRight,
   Keyboard,
 } from "lucide-react";
+
+const POSTS_PER_PAGE = 3;
 
 // ---------- Featured Hero Section ----------
 
@@ -222,10 +222,10 @@ function TopicsSection({ tags }: { tags: Tag[] }) {
 
 // ---------- Post List Skeleton ----------
 
-function PostListSkeleton() {
+function PostListSkeleton({ count = 3 }: { count?: number }) {
   return (
     <div className="space-y-6">
-      {[1, 2, 3, 4].map((i) => (
+      {Array.from({ length: count }, (_, i) => (
         <div key={i} className="space-y-2 border-b pb-6">
           <Skeleton className="h-5 w-3/4" />
           <Skeleton className="h-4 w-full" />
@@ -274,44 +274,43 @@ function TrendingSkeleton() {
   );
 }
 
-// ---------- Pagination ----------
+// ---------- Scroll Sentinel (triggers load-more) ----------
 
-function Pagination({
-  page,
-  totalPages,
-  onPageChange,
-}: {
-  page: number;
-  totalPages: number;
-  onPageChange: (p: number) => void;
-}) {
-  if (totalPages <= 1) return null;
+function useInfiniteScroll(
+  onLoadMore: () => void,
+  loading: boolean,
+  hasMore: boolean,
+) {
+  const callbackRef = useRef(onLoadMore);
+  callbackRef.current = onLoadMore;
+  const loadingRef = useRef(loading);
+  loadingRef.current = loading;
+  const hasMoreRef = useRef(hasMore);
+  hasMoreRef.current = hasMore;
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
-  return (
-    <div className="mt-8 flex items-center justify-center gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onPageChange(page - 1)}
-        disabled={page <= 1}
-        aria-label="Previous page"
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
-      <span className="text-sm text-muted-foreground">
-        Page {page} of {totalPages}
-      </span>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onPageChange(page + 1)}
-        disabled={page >= totalPages}
-        aria-label="Next page"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </Button>
-    </div>
-  );
+  // Callback ref — fires when the DOM element mounts/unmounts
+  const sentinelRef = useCallback((node: HTMLDivElement | null) => {
+    // Disconnect old observer
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+
+    if (!node) return;
+
+    observerRef.current = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasMoreRef.current && !loadingRef.current) {
+          callbackRef.current();
+        }
+      },
+      { rootMargin: "300px", threshold: 0 },
+    );
+    observerRef.current.observe(node);
+  }, []);
+
+  return sentinelRef;
 }
 
 // ---------- Main Page ----------
@@ -323,17 +322,23 @@ export default function ExplorePage() {
   const [featured, setFeatured] = useState<Post[]>([]);
   const [trending, setTrending] = useState<Post[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+
+  // Infinite scroll — latest
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
-  const [latestPage, setLatestPage] = useState(1);
-  const [latestTotalPages, setLatestTotalPages] = useState(1);
+  const latestPageRef = useRef(0);
+  const [latestHasMore, setLatestHasMore] = useState(true);
+  const [latestLoading, setLatestLoading] = useState(true);
+  const [latestLoadingMore, setLatestLoadingMore] = useState(false);
+
+  // Infinite scroll — feed
   const [feedPosts, setFeedPosts] = useState<Post[]>([]);
-  const [feedPage, setFeedPage] = useState(1);
-  const [feedTotalPages, setFeedTotalPages] = useState(1);
+  const feedPageRef = useRef(0);
+  const [feedHasMore, setFeedHasMore] = useState(true);
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [feedLoadingMore, setFeedLoadingMore] = useState(false);
 
   // Loading states
   const [heroLoading, setHeroLoading] = useState(true);
-  const [latestLoading, setLatestLoading] = useState(true);
-  const [feedLoading, setFeedLoading] = useState(false);
 
   // Active tab
   const [activeTab, setActiveTab] = useState("latest");
@@ -366,51 +371,84 @@ export default function ExplorePage() {
       .finally(() => setHeroLoading(false));
   }, []);
 
-  // Fetch latest posts
+  // Fetch latest posts — initial load
   useEffect(() => {
     setLatestLoading(true);
+    latestPageRef.current = 1;
     api
       .get<PaginatedResponse<Post>>("/posts", {
-        page: String(latestPage),
-        per_page: "10",
+        page: "1",
+        per_page: String(POSTS_PER_PAGE),
       })
       .then((res) => {
         setLatestPosts(res.data || []);
-        setLatestTotalPages(res.total_pages);
+        setLatestHasMore((res.page || 1) < (res.total_pages || 1));
       })
       .catch((err) => console.error("Failed to load latest posts:", err))
       .finally(() => setLatestLoading(false));
-  }, [latestPage]);
+  }, []);
 
-  // Fetch feed (only when tab is active + user is logged in)
-  const fetchFeed = useCallback(
-    (page: number) => {
-      if (authLoading || !user) return;
-      setFeedLoading(true);
-      api
-        .get<PaginatedResponse<Post>>("/feed", {
-          page: String(page),
-          per_page: "10",
-        })
-        .then((res) => {
-          setFeedPosts(res.data || []);
-          setFeedTotalPages(res.total_pages);
-        })
-        .catch((err) => {
-          if (err instanceof ApiError && err.status === 401) {
-            // Silently ignore — user might not be logged in
-          }
-        })
-        .finally(() => setFeedLoading(false));
-    },
-    [user, authLoading],
-  );
+  // Fetch latest posts — load more on scroll
+  const loadMoreLatest = useCallback(() => {
+    if (latestLoadingMore || !latestHasMore) return;
+    const nextPage = latestPageRef.current + 1;
+    setLatestLoadingMore(true);
+    api
+      .get<PaginatedResponse<Post>>("/posts", {
+        page: String(nextPage),
+        per_page: String(POSTS_PER_PAGE),
+      })
+      .then((res) => {
+        latestPageRef.current = nextPage;
+        setLatestPosts((prev) => [...prev, ...(res.data || [])]);
+        setLatestHasMore(nextPage < (res.total_pages || 1));
+      })
+      .catch((err) => console.error("Failed to load more posts:", err))
+      .finally(() => setLatestLoadingMore(false));
+  }, [latestLoadingMore, latestHasMore]);
 
+  // Fetch feed — initial load
+  const feedInitialized = useRef(false);
   useEffect(() => {
-    if (activeTab === "foryou") {
-      fetchFeed(feedPage);
-    }
-  }, [activeTab, feedPage, fetchFeed]);
+    if (activeTab !== "foryou" || authLoading || !user || feedInitialized.current) return;
+    feedInitialized.current = true;
+    setFeedLoading(true);
+    feedPageRef.current = 1;
+    api
+      .get<PaginatedResponse<Post>>("/feed", {
+        page: "1",
+        per_page: String(POSTS_PER_PAGE),
+      })
+      .then((res) => {
+        setFeedPosts(res.data || []);
+        setFeedHasMore((res.page || 1) < (res.total_pages || 1));
+      })
+      .catch((err) => {
+        if (!(err instanceof ApiError && err.status === 401)) {
+          console.error("Failed to load feed:", err);
+        }
+      })
+      .finally(() => setFeedLoading(false));
+  }, [activeTab, user, authLoading]);
+
+  // Fetch feed — load more on scroll
+  const loadMoreFeed = useCallback(() => {
+    if (feedLoadingMore || !feedHasMore || !user) return;
+    const nextPage = feedPageRef.current + 1;
+    setFeedLoadingMore(true);
+    api
+      .get<PaginatedResponse<Post>>("/feed", {
+        page: String(nextPage),
+        per_page: String(POSTS_PER_PAGE),
+      })
+      .then((res) => {
+        feedPageRef.current = nextPage;
+        setFeedPosts((prev) => [...prev, ...(res.data || [])]);
+        setFeedHasMore(nextPage < (res.total_pages || 1));
+      })
+      .catch((err) => console.error("Failed to load more feed:", err))
+      .finally(() => setFeedLoadingMore(false));
+  }, [feedLoadingMore, feedHasMore, user]);
 
   const showForYou = !authLoading && !!user;
 
@@ -428,6 +466,10 @@ export default function ExplorePage() {
       }
     },
   });
+
+  // Infinite scroll sentinels
+  const latestSentinelRef = useInfiniteScroll(loadMoreLatest, latestLoadingMore, latestHasMore);
+  const feedSentinelRef = useInfiniteScroll(loadMoreFeed, feedLoadingMore, feedHasMore);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -506,11 +548,15 @@ export default function ExplorePage() {
                           />
                         ))}
                       </div>
-                      <Pagination
-                        page={latestPage}
-                        totalPages={latestTotalPages}
-                        onPageChange={setLatestPage}
-                      />
+                      {latestHasMore && (
+                        <div ref={latestSentinelRef} className="py-4">
+                          {latestLoadingMore ? (
+                            <PostListSkeleton />
+                          ) : (
+                            <div className="h-10" />
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
                 </TabsContent>
@@ -546,11 +592,15 @@ export default function ExplorePage() {
                           />
                         ))}
                       </div>
-                      <Pagination
-                        page={feedPage}
-                        totalPages={feedTotalPages}
-                        onPageChange={setFeedPage}
-                      />
+                      {feedHasMore && (
+                        <div ref={feedSentinelRef} className="py-4">
+                          {feedLoadingMore ? (
+                            <PostListSkeleton />
+                          ) : (
+                            <div className="h-10" />
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
                 </TabsContent>
@@ -576,11 +626,15 @@ export default function ExplorePage() {
                         />
                       ))}
                     </div>
-                    <Pagination
-                      page={latestPage}
-                      totalPages={latestTotalPages}
-                      onPageChange={setLatestPage}
-                    />
+                    {latestHasMore && (
+                      <div ref={latestSentinelRef} className="py-4">
+                        {latestLoadingMore ? (
+                          <PostListSkeleton />
+                        ) : (
+                          <div className="h-10" />
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
               </>
