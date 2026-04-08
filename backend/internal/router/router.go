@@ -78,7 +78,10 @@ func New(pool *pgxpool.Pool, cfg *config.Config) *chi.Mux {
 
 	// API v1
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Use(middleware.MaxBodySize(1 << 20)) // 1MB default body limit
+		r.Use(middleware.MaxBodySizeWithOverrides(1<<20, map[string]int64{
+			"/api/v1/media/upload": 10 << 20,
+			"/api/v1/import/medium": 50 << 20,
+		})) // 1MB default body limit with explicit upload overrides
 		// Auth (strict rate limit: 10 req/min per IP)
 		r.Route("/auth", func(r chi.Router) {
 			r.Use(middleware.AuthRateLimit())
@@ -214,7 +217,6 @@ func New(pool *pgxpool.Pool, cfg *config.Config) *chi.Mux {
 		// Import
 		r.Route("/import", func(r chi.Router) {
 			r.Use(middleware.AuthMiddleware(cfg.JWTSecret, pool))
-			r.Use(middleware.MaxBodySize(50 << 20)) // 50MB for ZIP uploads
 			r.Post("/medium", importH.MediumImport)
 		})
 

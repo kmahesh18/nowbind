@@ -1,6 +1,9 @@
 package middleware
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+)
 
 // SecurityHeaders adds common security headers to all responses.
 func SecurityHeaders(next http.Handler) http.Handler {
@@ -18,6 +21,28 @@ func SecurityHeaders(next http.Handler) http.Handler {
 func MaxBodySize(maxBytes int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Body != nil {
+				r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// MaxBodySizeWithOverrides applies a default body size limit with per-path overrides.
+func MaxBodySizeWithOverrides(defaultMaxBytes int64, pathOverrides map[string]int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			maxBytes := defaultMaxBytes
+			longestMatch := 0
+
+			for pathPrefix, overrideMaxBytes := range pathOverrides {
+				if strings.HasPrefix(r.URL.Path, pathPrefix) && len(pathPrefix) > longestMatch {
+					maxBytes = overrideMaxBytes
+					longestMatch = len(pathPrefix)
+				}
+			}
+
 			if r.Body != nil {
 				r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
 			}
