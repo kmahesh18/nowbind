@@ -59,7 +59,7 @@ function LoginContent() {
   );
 
   useEffect(() => {
-    api.get("/auth/dev-login/status")
+    api.get<{ enabled: boolean }>("/auth/dev-login/status")
       .then((res: { enabled: boolean }) => setDevLoginAvailable(res.enabled))
       .catch(() => setDevLoginAvailable(false));
   }, []);
