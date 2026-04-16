@@ -128,7 +128,7 @@ function FeaturedSection({ posts }: { posts: Post[] }) {
 // ---------- Trending Section ----------
 
 function TrendingSection({ posts }: { posts: Post[] }) {
-  if (posts.length === 0) return null;
+  if (!Array.isArray(posts) || posts.length === 0) return null;
 
   return (
     <section className="mb-10">
@@ -357,6 +357,7 @@ export default function ExplorePage() {
         .catch(() => [] as Post[]),
       api
         .get<Post[]>("/posts/trending", { limit: "6" })
+        .then((r) => (Array.isArray(r) ? r : []))
         .catch(() => [] as Post[]),
       api
         .get<{ data: Tag[] }>("/tags")

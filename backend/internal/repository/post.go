@@ -483,7 +483,7 @@ func (r *PostRepository) GetTrending(ctx context.Context, days, limit int) ([]mo
 	}
 	defer rows.Close()
 
-	var posts []model.Post
+	posts := make([]model.Post, 0)
 	for rows.Next() {
 		var p model.Post
 		var author model.User
