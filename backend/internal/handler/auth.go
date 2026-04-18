@@ -21,6 +21,7 @@ import (
 	"github.com/nowbind/nowbind/internal/model"
 	"github.com/nowbind/nowbind/internal/repository"
 	"github.com/nowbind/nowbind/internal/service"
+	"github.com/nowbind/nowbind/pkg"
 )
 
 // emailRateLimiter tracks per-email magic link request timestamps to prevent
@@ -451,13 +452,27 @@ func (h *AuthHandler) DevLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Email string `json:"email"`
+		Email      string `json:"email"`
+		Identifier string `json:"identifier"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" {
-		req.Email = "dev@localhost"
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		req = struct {
+			Email      string `json:"email"`
+			Identifier string `json:"identifier"`
+		}{}
 	}
 
-	user, session, accessToken, err := h.auth.DevLogin(r.Context(), req.Email)
+	identifier := strings.TrimSpace(req.Identifier)
+	if identifier == "" {
+		identifier = strings.TrimSpace(req.Email)
+	}
+	email := normalizeDevLoginEmail(identifier)
+	if email == "" {
+		writeError(w, http.StatusBadRequest, "identifier or email is required")
+		return
+	}
+
+	user, session, accessToken, err := h.auth.DevLogin(r.Context(), email)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "dev login failed")
 		return
@@ -482,4 +497,20 @@ func (h *AuthHandler) backendOrigin(r *http.Request) string {
 		scheme = "https"
 	}
 	return fmt.Sprintf("%s://%s", scheme, r.Host)
+}
+
+func normalizeDevLoginEmail(identifier string) string {
+	normalized := strings.ToLower(strings.TrimSpace(identifier))
+	if normalized == "" {
+		return ""
+	}
+	if strings.Contains(normalized, "@") {
+		return normalized
+	}
+
+	slug := pkg.Slugify(normalized)
+	if slug == "" {
+		slug = "dev-user"
+	}
+	return slug + "@localhost"
 }

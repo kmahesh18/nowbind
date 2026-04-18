@@ -53,6 +53,7 @@ function LoginContent() {
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [devLoading, setDevLoading] = useState(false);
+  const [devIdentifier, setDevIdentifier] = useState("");
   const [devLoginAvailable, setDevLoginAvailable] = useState(false);
   const [error, setError] = useState(
     oauthError ? "Authentication failed. Please try again." : ""
@@ -120,6 +121,12 @@ function LoginContent() {
 
         {devLoginAvailable && (
           <>
+            <Input
+              type="text"
+              placeholder="dev@localhost or any identifier"
+              value={devIdentifier}
+              onChange={(e) => setDevIdentifier(e.target.value)}
+            />
             <Button
               variant="default"
               className="w-full"
@@ -127,13 +134,26 @@ function LoginContent() {
               onClick={async () => {
                 setDevLoading(true);
                 setError("");
+                const trimmedIdentifier = devIdentifier.trim();
+                if (!trimmedIdentifier) {
+                  setError("Enter an email or identifier for dev login.");
+                  setDevLoading(false);
+                  return;
+                }
                 try {
-                  const res = await api.post("/auth/dev-login", { email: "dev@localhost" });
+                  const res = await api.post("/auth/dev-login", {
+                    identifier: trimmedIdentifier,
+                  });
                   if (res) {
                     window.location.href = "/explore";
                   }
-                } catch {
-                  setError("Dev login failed. Is the backend running?");
+                } catch (err: unknown) {
+                  if (err && typeof err === "object" && "status" in err) {
+                    const message = (err as ApiError).message || "";
+                    setError(message || "Dev login failed. Please try again.");
+                  } else {
+                    setError("Dev login failed. Please try again.");
+                  }
                 } finally {
                   setDevLoading(false);
                 }

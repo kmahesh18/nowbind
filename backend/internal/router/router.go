@@ -79,25 +79,25 @@ func New(pool *pgxpool.Pool, cfg *config.Config) *chi.Mux {
 	// API v1
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(middleware.MaxBodySizeWithOverrides(1<<20, map[string]int64{
-			"/api/v1/media/upload": 10 << 20,
+			"/api/v1/media/upload":  10 << 20,
 			"/api/v1/import/medium": 50 << 20,
 		})) // 1MB default body limit with explicit upload overrides
 		// Auth (strict rate limit: 10 req/min per IP)
 		r.Route("/auth", func(r chi.Router) {
-			r.Use(middleware.AuthRateLimit())
-			r.Post("/magic-link", authH.SendMagicLink)
-			r.Get("/magic-link/verify", authH.VerifyMagicLink)
-			r.Post("/refresh", authH.Refresh)
-			r.Post("/logout", authH.Logout)
-			r.With(middleware.AuthMiddleware(cfg.JWTSecret, pool)).Get("/me", authH.Me)
+			r.With(middleware.AuthRateLimit()).Post("/magic-link", authH.SendMagicLink)
+			r.With(middleware.AuthRateLimit()).Get("/magic-link/verify", authH.VerifyMagicLink)
+			r.With(middleware.AuthRateLimit()).Post("/refresh", authH.Refresh)
+			r.With(middleware.AuthRateLimit()).Post("/logout", authH.Logout)
+			r.With(middleware.AuthRateLimit(), middleware.AuthMiddleware(cfg.JWTSecret, pool)).Get("/me", authH.Me)
 
 			// OAuth
-			r.Get("/oauth/google", authH.GoogleLogin)
-			r.Get("/oauth/google/callback", authH.GoogleCallback)
-			r.Get("/oauth/github", authH.GitHubLogin)
-			r.Get("/oauth/github/callback", authH.GitHubCallback)
+			r.With(middleware.AuthRateLimit()).Get("/oauth/google", authH.GoogleLogin)
+			r.With(middleware.AuthRateLimit()).Get("/oauth/google/callback", authH.GoogleCallback)
+			r.With(middleware.AuthRateLimit()).Get("/oauth/github", authH.GitHubLogin)
+			r.With(middleware.AuthRateLimit()).Get("/oauth/github/callback", authH.GitHubCallback)
 
-			// Dev-only login (requires DEV_LOGIN=true)
+			// Dev-only login (requires DEV_LOGIN=true); intentionally not auth-rate-limited
+			// so local dev account switching is not blocked by production auth limits.
 			r.Get("/dev-login/status", authH.DevLoginStatus)
 			r.Post("/dev-login", authH.DevLogin)
 		})

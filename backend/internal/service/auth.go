@@ -287,14 +287,19 @@ func (s *AuthService) HandleGitHubCallback(ctx context.Context, code, clientID, 
 // bypassing OAuth and email verification. For local development only.
 func (s *AuthService) DevLogin(ctx context.Context, email string) (*model.User, *model.Session, string, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "" {
+		return nil, nil, "", fmt.Errorf("email is required")
+	}
 
 	user, err := s.users.GetByEmail(ctx, email)
 	if err != nil {
 		return nil, nil, "", err
 	}
 	if user == nil {
-		username := strings.Split(email, "@")[0]
-		username = pkg.Slugify(username)
+		username, err := s.generateUniqueDevUsername(ctx, email)
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("generating dev username: %w", err)
+		}
 		user = &model.User{
 			Email:       email,
 			Username:    username,
@@ -316,6 +321,44 @@ func (s *AuthService) DevLogin(ctx context.Context, email string) (*model.User, 
 	}
 
 	return user, session, accessToken, nil
+}
+
+func (s *AuthService) generateUniqueDevUsername(ctx context.Context, email string) (string, error) {
+	base := pkg.Slugify(strings.ReplaceAll(strings.ReplaceAll(email, "@", "-at-"), ".", "-"))
+	if base == "" {
+		base = "dev-user"
+	}
+	base = trimForUsername(base, 50)
+
+	candidate := base
+	for i := 2; i <= 999; i++ {
+		existing, err := s.users.GetByUsername(ctx, candidate)
+		if err != nil {
+			return "", err
+		}
+		if existing == nil {
+			return candidate, nil
+		}
+
+		suffix := fmt.Sprintf("-%d", i)
+		candidate = trimForUsername(base, 50-len(suffix)) + suffix
+	}
+
+	return "", fmt.Errorf("exhausted dev username variants for %s", email)
+}
+
+func trimForUsername(input string, maxLen int) string {
+	if maxLen <= 0 {
+		return ""
+	}
+	candidate := input
+	if len(candidate) > maxLen {
+		candidate = strings.Trim(candidate[:maxLen], "-")
+	}
+	if candidate == "" {
+		return "dev-user"
+	}
+	return candidate
 }
 
 func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*model.User, *model.Session, string, error) {
