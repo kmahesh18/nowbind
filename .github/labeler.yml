@@ -35,6 +35,18 @@
     - any-glob-to-any-file: "backend/internal/handler/analytics.go"
     - any-glob-to-any-file: "backend/internal/repository/analytics.go"
 
+"ci":
+  - changed-files:
+    - any-glob-to-any-file: ".github/workflows/**"
+
+"dependencies":
+  - changed-files:
+    - any-glob-to-any-file: "frontend/package.json"
+    - any-glob-to-any-file: "frontend/package-lock.json"
+    - any-glob-to-any-file: "backend/go.mod"
+    - any-glob-to-any-file: "backend/go.sum"
+    - any-glob-to-any-file: ".github/dependabot.yml"
+
 "documentation":
   - changed-files:
     - any-glob-to-any-file: "*.md"

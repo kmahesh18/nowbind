@@ -1,0 +1,159 @@
+name: Issue Triage
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/github-script@v9
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        with:
+          script: |
+            const body = process.env.ISSUE_BODY || "";
+
+            const match = body.match(/^### Area\s*\r?\n+([^\r\n]+)$/m);
+            if (!match) {
+              core.info("No issue form area found.");
+              return;
+            }
+
+            const area = match[1].trim();
+            const mapping = {
+              "Frontend": ["area:frontend"],
+              "Frontend / UI": ["area:frontend"],
+              "Backend / API": ["area:backend", "area:api"],
+              "MCP Server": ["area:mcp"],
+              "MCP / AI Integration": ["area:mcp"],
+              "Agent API": ["area:api"],
+              "Authentication": ["area:auth"],
+              "Auth / Security": ["area:auth", "security"],
+              "Database / Migrations": ["area:backend"],
+              "PWA / Notifications": ["area:pwa"],
+              "Editor / Writing": ["area:editor"],
+              "Analytics": ["area:analytics"],
+              "Documentation": ["documentation"],
+              "DevOps / Infrastructure": ["ci"],
+            };
+
+            const managedLabels = [
+              "area:frontend",
+              "area:backend",
+              "area:api",
+              "area:mcp",
+              "area:auth",
+              "area:pwa",
+              "area:editor",
+              "area:analytics",
+              "documentation",
+              "security",
+              "ci",
+            ];
+            const labels = mapping[area] || [];
+            if (labels.length === 0) {
+              core.info(`No label mapping configured for area: ${area}`);
+              return;
+            }
+
+            const labelDefinitions = {
+              "area:frontend": {
+                color: "ededed",
+                description: "Frontend and UI work",
+              },
+              "area:backend": {
+                color: "ededed",
+                description: "Backend services and data layer",
+              },
+              "area:api": {
+                color: "ededed",
+                description: "HTTP and agent-facing API changes",
+              },
+              "area:mcp": {
+                color: "ededed",
+                description: "MCP server and AI integration",
+              },
+              "area:auth": {
+                color: "ededed",
+                description: "Authentication and session flows",
+              },
+              "area:pwa": {
+                color: "ededed",
+                description: "PWA, service worker, and notifications",
+              },
+              "area:editor": {
+                color: "ededed",
+                description: "Editor and writing experience",
+              },
+              "area:analytics": {
+                color: "ededed",
+                description: "Analytics and referrer tracking",
+              },
+              "documentation": {
+                color: "0075ca",
+                description: "Improvements or additions to documentation",
+              },
+              "security": {
+                color: "b60205",
+                description: "Security-related work",
+              },
+              "dependencies": {
+                color: "0366d6",
+                description: "Dependency updates",
+              },
+              "ci": {
+                color: "1d76db",
+                description: "GitHub Actions and CI automation",
+              },
+            };
+
+            for (const name of labels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name,
+                });
+              } catch (error) {
+                if (error.status !== 404 || !labelDefinitions[name]) {
+                  throw error;
+                }
+
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name,
+                  color: labelDefinitions[name].color,
+                  description: labelDefinitions[name].description,
+                });
+              }
+            }
+
+            const currentLabels = context.payload.issue.labels.map((label) => label.name);
+            const labelsToRemove = managedLabels.filter(
+              (name) => currentLabels.includes(name) && !labels.includes(name)
+            );
+
+            if (labelsToRemove.length > 0) {
+              for (const name of labelsToRemove) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  name,
+                });
+              }
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels,
+            });
