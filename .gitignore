@@ -57,3 +57,5 @@ docker-compose.override.yml
 scripts/node_modules/
 
 docs/post-drafts
+docs/
+AGENTS.md
