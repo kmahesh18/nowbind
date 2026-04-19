@@ -18,6 +18,11 @@ export default function robots(): MetadataRoute.Robots {
         "/profile",
       ],
     },
-    sitemap: `${SITE_URL}/sitemap.xml`,
+    sitemap: [
+      `${SITE_URL}/sitemap.xml`,
+      `${SITE_URL}/post/sitemap.xml`,
+      `${SITE_URL}/tag/sitemap.xml`,
+      `${SITE_URL}/author/sitemap.xml`,
+    ],
   };
 }

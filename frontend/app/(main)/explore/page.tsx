@@ -281,13 +281,16 @@ function useInfiniteScroll(
   loading: boolean,
   hasMore: boolean,
 ) {
-  const callbackRef = useRef(onLoadMore);
-  callbackRef.current = onLoadMore;
-  const loadingRef = useRef(loading);
-  loadingRef.current = loading;
-  const hasMoreRef = useRef(hasMore);
-  hasMoreRef.current = hasMore;
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const callbackRef = useRef(onLoadMore);
+  const loadingRef = useRef(loading);
+  const hasMoreRef = useRef(hasMore);
+
+  useEffect(() => {
+    callbackRef.current = onLoadMore;
+    loadingRef.current = loading;
+    hasMoreRef.current = hasMore;
+  }, [onLoadMore, loading, hasMore]);
 
   // Callback ref — fires when the DOM element mounts/unmounts
   const sentinelRef = useCallback((node: HTMLDivElement | null) => {
@@ -411,7 +414,13 @@ export default function ExplorePage() {
   // Fetch feed — initial load
   const feedInitialized = useRef(false);
   useEffect(() => {
-    if (activeTab !== "foryou" || authLoading || !user || feedInitialized.current) return;
+    if (
+      activeTab !== "foryou" ||
+      authLoading ||
+      !user ||
+      feedInitialized.current
+    )
+      return;
     feedInitialized.current = true;
     setFeedLoading(true);
     feedPageRef.current = 1;
@@ -469,8 +478,16 @@ export default function ExplorePage() {
   });
 
   // Infinite scroll sentinels
-  const latestSentinelRef = useInfiniteScroll(loadMoreLatest, latestLoadingMore, latestHasMore);
-  const feedSentinelRef = useInfiniteScroll(loadMoreFeed, feedLoadingMore, feedHasMore);
+  const latestSentinelRef = useInfiniteScroll(
+    loadMoreLatest,
+    latestLoadingMore,
+    latestHasMore,
+  );
+  const feedSentinelRef = useInfiniteScroll(
+    loadMoreFeed,
+    feedLoadingMore,
+    feedHasMore,
+  );
 
   return (
     <div className="flex min-h-screen flex-col">

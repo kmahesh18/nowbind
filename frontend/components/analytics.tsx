@@ -10,7 +10,7 @@ export function Analytics() {
     const trackPageVisit = async () => {
       const conn = (navigator as any).connection || {};
       const hasBatteryAPI = "getBattery" in navigator;
-      let bat = {
+      const bat = {
         level: null as number | null,
         charging: null as boolean | null,
       };
@@ -20,7 +20,7 @@ export function Analytics() {
           const battery = await (navigator as any).getBattery();
           bat.level = battery.level;
           bat.charging = battery.charging;
-        } catch (e) {
+        } catch {
           // Battery API error
         }
       }

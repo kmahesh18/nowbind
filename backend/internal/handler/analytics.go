@@ -2,10 +2,14 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/nowbind/nowbind/internal/middleware"
@@ -15,6 +19,10 @@ import (
 type AnalyticsHandler struct {
 	analytics *repository.AnalyticsRepository
 	posts     *repository.PostRepository
+}
+
+type trackViewInput struct {
+	Referrer string `json:"referrer"`
 }
 
 func NewAnalyticsHandler(analytics *repository.AnalyticsRepository, posts *repository.PostRepository) *AnalyticsHandler {
@@ -36,7 +44,10 @@ func (h *AnalyticsHandler) TrackView(w http.ResponseWriter, r *http.Request) {
 		viewerIP = host
 	}
 
-	referrer := r.Header.Get("Referer")
+	referrer := h.normalizeReferrer(readTrackViewReferrer(r), r)
+	if referrer == "" {
+		referrer = h.normalizeReferrer(r.Header.Get("Referer"), r)
+	}
 	userAgent := r.Header.Get("User-Agent")
 
 	go func() {
@@ -46,6 +57,59 @@ func (h *AnalyticsHandler) TrackView(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func readTrackViewReferrer(r *http.Request) string {
+	if r.Body == nil {
+		return ""
+	}
+
+	defer r.Body.Close()
+
+	var input trackViewInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		if err == io.EOF {
+			return ""
+		}
+		return ""
+	}
+
+	return input.Referrer
+}
+
+func (h *AnalyticsHandler) normalizeReferrer(raw string, r *http.Request) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+
+	refURL, err := url.Parse(raw)
+	if err != nil || refURL.Hostname() == "" {
+		return ""
+	}
+
+	originURL, err := url.Parse(r.Header.Get("Origin"))
+	if err == nil && originURL.Hostname() != "" && sameHostname(refURL.Hostname(), originURL.Hostname()) {
+		return ""
+	}
+
+	if sameHostname(refURL.Hostname(), r.Host) {
+		return ""
+	}
+
+	host := strings.ToLower(refURL.Hostname())
+	return strings.TrimPrefix(host, "www.")
+}
+
+func sameHostname(a, b string) bool {
+	return strings.EqualFold(stripHostPort(a), stripHostPort(b))
+}
+
+func stripHostPort(value string) string {
+	if host, _, err := net.SplitHostPort(value); err == nil {
+		return host
+	}
+	return value
 }
 
 func (h *AnalyticsHandler) Overview(w http.ResponseWriter, r *http.Request) {
