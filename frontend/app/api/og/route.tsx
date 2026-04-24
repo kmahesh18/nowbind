@@ -109,7 +109,6 @@ export async function GET(req: NextRequest) {
       >
         {/* Top: branding */}
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={LOGO_DATA_URI}
             width={36}

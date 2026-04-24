@@ -83,7 +83,7 @@ export function TTSPlayer({
                 element.scrollIntoView({ behavior: "smooth", block: "center" });
               }
             }
-          } catch (err) {
+          } catch {
             // Ignore range errors
           }
         }

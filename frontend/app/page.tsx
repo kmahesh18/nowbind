@@ -1,40 +1,71 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/hooks/use-auth";
-import { api } from "@/lib/api";
-import type { Post } from "@/lib/types";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { API_URL, SITE_URL } from "@/lib/constants";
+import type { PaginatedResponse, Post } from "@/lib/types";
+import { ArrowRight } from "lucide-react";
 
-export default function HomePage() {
-  const router = useRouter();
-  const { user, loading } = useAuth();
-  const [recentPosts, setRecentPosts] = useState<Post[]>([]);
+export const revalidate = 300;
 
-  useEffect(() => {
-    if (!loading && user) {
-      router.replace("/explore");
+async function getRecentPosts(): Promise<Post[]> {
+  try {
+    const res = await fetch(`${API_URL}/posts?per_page=4&page=1`, {
+      next: { revalidate },
+    });
+
+    if (!res.ok) {
+      return [];
     }
-  }, [user, loading, router]);
 
-  useEffect(() => {
-    api
-      .get<{ data: Post[] }>("/posts", { per_page: "4", page: "1" })
-      .then((res) => setRecentPosts(res.data || []))
-      .catch((err) => console.error("Failed to load recent posts:", err));
-  }, []);
+    const data: PaginatedResponse<Post> = await res.json();
+    return (data.data || []).filter((post) => post.status === "published");
+  } catch {
+    return [];
+  }
+}
 
-  if (loading || user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
-    );
+async function getRequestOrigin(): Promise<string> {
+  const headerStore = await headers();
+  const host = headerStore.get("x-forwarded-host") || headerStore.get("host");
+  const proto = headerStore.get("x-forwarded-proto") || "http";
+
+  return host ? `${proto}://${host}` : SITE_URL;
+}
+
+async function isAuthenticated(): Promise<boolean> {
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get("access_token")?.value;
+
+  if (!accessToken) {
+    return false;
+  }
+
+  try {
+    const origin = await getRequestOrigin();
+    const res = await fetch(`${origin}/api/v1/auth/me`, {
+      headers: {
+        cookie: `access_token=${accessToken}`,
+      },
+      cache: "no-store",
+    });
+
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export default async function HomePage() {
+  const [authenticated, recentPosts] = await Promise.all([
+    isAuthenticated(),
+    getRecentPosts(),
+  ]);
+
+  if (authenticated) {
+    redirect("/explore");
   }
 
   return (
@@ -48,10 +79,10 @@ export default function HomePage() {
               Open-source blogging platform
             </p>
             <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl lg:text-8xl">
-              Write for humans.
-            </h1>
-            <h1 className="mt-1 text-5xl font-extrabold tracking-tight text-muted-foreground/50 sm:text-6xl md:text-7xl lg:text-8xl">
-              Feed the machines.
+              <span className="block">Write for humans.</span>
+              <span className="mt-1 block text-muted-foreground/50">
+                Feed the machines.
+              </span>
             </h1>
             <p className="mx-auto mt-8 max-w-xl text-base text-muted-foreground md:text-lg">
               Every post you publish is simultaneously a beautiful article for
