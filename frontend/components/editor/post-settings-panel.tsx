@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +69,19 @@ export function PostSettingsPanel({
       content,
       selectedTags: tags,
     });
+
+  const hasAutoTagged = useRef(false);
+
+  useEffect(() => {
+    // Only auto-tag once per session if there are no tags selected yet
+    if (!hasAutoTagged.current && tags.length === 0 && suggestions.length > 0) {
+      hasAutoTagged.current = true;
+      const top3 = suggestions.slice(0, 3).map((s) => s.matched_tag || s.keyword);
+      if (top3.length > 0) {
+        onTagsChange([...tags, ...top3]);
+      }
+    }
+  }, [suggestions, tags, onTagsChange]);
 
   const addTag = useCallback(() => {
     const tag = tagInput.trim();

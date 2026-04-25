@@ -92,7 +92,7 @@ def extract_keywords(title: str, excerpt: str, content: str, top_n: int = 10) ->
         keyphrase_ngram_range=(1, 2),   # single words and two-word phrases
         stop_words="english",
         use_mmr=True,                   # Maximal Marginal Relevance: reduces redundancy
-        diversity=0.5,                  # 0 = identical keywords, 1 = very diverse
+        diversity=0.3,                  # lowered to keep tags highly relevant instead of weirdly diverse
         top_n=top_n,
     )
 
