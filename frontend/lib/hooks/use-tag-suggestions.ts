@@ -127,6 +127,19 @@ export function useTagSuggestions({
     [postId, title, subtitle, excerpt, content, selectedTags]
   );
 
+  // When postId first becomes valid (draft created), fetch suggestions immediately
+  // with whatever content we already have — the debounced effects won't re-fire
+  // because title/subtitle/content haven't changed.
+  const initialFetchDone = useRef(false);
+  useEffect(() => {
+    if (!postId || postId === "new" || initialFetchDone.current) return;
+    initialFetchDone.current = true;
+    // Small delay to let the autosave response settle
+    const timer = setTimeout(() => fetchSuggestions("title"), 300);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postId]);
+
   // Title: debounce 800ms
   useEffect(() => {
     if (!title.trim() || !postId || postId === "new") return;

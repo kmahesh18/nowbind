@@ -473,7 +473,7 @@ export default function EditPostPage({ params }: Props) {
           setFeatureImage(v);
           markDirty();
         }}
-        postId={id}
+        postId={post?.id || ""}
         title={title}
         subtitle={subtitle}
         content={contentText}

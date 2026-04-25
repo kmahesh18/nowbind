@@ -202,7 +202,10 @@ func (s *PostService) Publish(ctx context.Context, postID, authorID string) erro
 		return fmt.Errorf("unauthorized")
 	}
 
-	if len(post.Tags) == 0 {
+	// Check if the post already has user-assigned tags (GetByID doesn't load Tags)
+	hasTags, _ := s.posts.HasTags(ctx, postID)
+
+	if !hasTags {
 		suggestions, err := s.tags.GetSuggestionsForPost(ctx, postID)
 		if err == nil && len(suggestions) > 0 {
 			limit := 3

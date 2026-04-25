@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/nowbind/nowbind/internal/moderation"
 )
 
@@ -30,6 +31,12 @@ type suggestTagsResponse struct {
 // SuggestTags calls the ML service to generate tag suggestions from post content.
 func (h *PostHandler) SuggestTags(w http.ResponseWriter, r *http.Request) {
 	postID := chi.URLParam(r, "id")
+
+	// Validate that postID is a UUID (not a slug)
+	if _, err := uuid.Parse(postID); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid post id")
+		return
+	}
 
 	var req suggestTagsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -107,6 +114,10 @@ type acceptSuggestionRequest struct {
 // AcceptTagSuggestion marks a suggestion as accepted or dismissed.
 func (h *PostHandler) AcceptTagSuggestion(w http.ResponseWriter, r *http.Request) {
 	postID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(postID); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid post id")
+		return
+	}
 
 	var req acceptSuggestionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -128,6 +139,10 @@ func (h *PostHandler) AcceptTagSuggestion(w http.ResponseWriter, r *http.Request
 // GetSuggestions returns persisted tag suggestions for a post (for editor reload/draft resumption).
 func (h *PostHandler) GetSuggestions(w http.ResponseWriter, r *http.Request) {
 	postID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(postID); err != nil {
+		writeJSON(w, http.StatusOK, map[string]interface{}{"suggestions": []interface{}{}})
+		return
+	}
 
 	suggestions, err := h.tagRepo.GetSuggestionsForPost(r.Context(), postID)
 	if err != nil {

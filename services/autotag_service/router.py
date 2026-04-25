@@ -31,7 +31,7 @@ async def suggest_tags(req: TagSuggestionRequest):
         title=req.title,
         excerpt=req.excerpt,
         content=req.content_sample,
-        top_n=12,
+        top_n=15,
     )
 
     if not keywords:
@@ -48,8 +48,8 @@ async def suggest_tags(req: TagSuggestionRequest):
         and (e["matched_tag"] is None or e["matched_tag"] not in selected_lower)
     ]
 
-    # Step 4: Cap at 8 suggestions
-    top = filtered[:8]
+    # Step 4: Cap at 10 suggestions
+    top = filtered[:10]
 
     # Determine which model ran (for logging/debugging)
     combined_word_count = word_count(
